@@ -70,20 +70,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Find user with matching credentials
       const user = users.find(u => u.email === email);
       
-      // In a real-world app, password verification would happen on the server
-      // For this demo, we're simulating basic authentication
+      // In a real-world app, password verification would happen securely on the server
       if (!user) {
         throw new Error("Invalid email or password");
       }
 
-      // Validate password - in a real app this would be done securely on the server
-      const isPasswordValid = validatePassword(email, password);
-      if (!isPasswordValid) {
+      // In a production environment, this would be a proper password verification
+      // against a securely hashed password stored in the database
+      // For now, we're still using a simpler verification for the demo
+      // but removing the "123" requirement
+      
+      // Get the user's password from the database (in a real app, this would be hashed)
+      const userFromDb = await fetchAPI<any>(`/users/${user.id}`);
+      
+      if (!userFromDb || userFromDb.password !== password) {
         throw new Error("Invalid email or password");
       }
       
-      // Store authentication info in sessionStorage instead of localStorage
-      sessionStorage.setItem("authToken", "demo-token"); // In a real app, this would be a JWT
+      // Store authentication info in sessionStorage
+      sessionStorage.setItem("authToken", "secure-token"); // In a real app, this would be a JWT
       sessionStorage.setItem("userId", user.id);
       
       setCurrentUser(user);
@@ -101,16 +106,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Simple password validation function
-  const validatePassword = (email: string, password: string) => {
-    // For the demo, we'll use basic validation
-    // In a real app, this would be handled securely on the server
-    
-    // For any user, check if password contains "123" for this demo
-    // In production, we'd compare with a properly hashed password from the DB
-    return password.includes("123");
   };
 
   const logout = () => {

@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { toast } from "sonner";
-import { AlertCircle, Settings, Info } from "lucide-react";
+import { AlertCircle, Settings } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { HealthAPI } from "@/services/api";
 
@@ -32,7 +32,6 @@ const LoginPage: React.FC = () => {
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
   const [showServerAlert, setShowServerAlert] = useState(false);
-  const [showHelpTip, setShowHelpTip] = useState(false);
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -63,7 +62,6 @@ const LoginPage: React.FC = () => {
     } catch (error) {
       // If there's an error, we'll show the server alert
       setShowServerAlert(true);
-      setShowHelpTip(true);
     }
   };
 
@@ -87,15 +85,6 @@ const LoginPage: React.FC = () => {
                 server settings
               </Link>
               .
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {showHelpTip && (
-          <Alert variant="default" className="mb-4">
-            <Info className="h-4 w-4" />
-            <AlertDescription>
-              For demo accounts, passwords must contain "123". For example: user123, admin123
             </AlertDescription>
           </Alert>
         )}
