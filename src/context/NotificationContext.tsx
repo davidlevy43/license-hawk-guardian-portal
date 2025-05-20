@@ -1,7 +1,9 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { EmailSettings, NotificationSettings } from "@/types";
+import { EmailSettings, NotificationSettings, License } from "@/types";
 import { toast } from "sonner";
+import { useLicenses } from "./LicenseContext";
+import { addDays, isWithinInterval } from "date-fns";
 
 interface NotificationContextType {
   emailSettings: EmailSettings;
@@ -9,6 +11,7 @@ interface NotificationContextType {
   updateEmailSettings: (settings: Partial<EmailSettings>) => void;
   updateNotificationSettings: (settings: Partial<NotificationSettings>) => void;
   testEmailConnection: () => Promise<boolean>;
+  sendAutomaticNotifications: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | null>(null);
@@ -19,21 +22,23 @@ const DEFAULT_EMAIL_SETTINGS: EmailSettings = {
   username: "",
   password: "",
   senderEmail: "",
-  senderName: "License Manager"
+  senderName: "License Manager",
+  automaticSending: true
 };
 
 const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   enabled: true,
   emailTemplates: {
-    thirtyDays: "Your license {LICENSE_NAME} will expire in 30 days on {EXPIRY_DATE}. Please take action.",
-    sevenDays: "REMINDER: Your license {LICENSE_NAME} will expire in 7 days on {EXPIRY_DATE}.",
-    oneDay: "URGENT: Your license {LICENSE_NAME} expires tomorrow on {EXPIRY_DATE}!"
+    thirtyDays: "Your {LICENSE_TYPE} {LICENSE_NAME} will expire in 30 days on {EXPIRY_DATE}. Payment method: Credit card ending in {CARD_LAST_4}. Please take action.",
+    sevenDays: "REMINDER: Your {LICENSE_TYPE} {LICENSE_NAME} will expire in 7 days on {EXPIRY_DATE}. Payment method: Credit card ending in {CARD_LAST_4}.",
+    oneDay: "URGENT: Your {LICENSE_TYPE} {LICENSE_NAME} expires tomorrow on {EXPIRY_DATE}! Payment method: Credit card ending in {CARD_LAST_4}."
   }
 };
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [emailSettings, setEmailSettings] = useState<EmailSettings>(DEFAULT_EMAIL_SETTINGS);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(DEFAULT_NOTIFICATION_SETTINGS);
+  const { licenses } = useLicenses();
 
   useEffect(() => {
     // Load settings from localStorage if available
@@ -57,7 +62,21 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         console.error("Failed to parse notification settings:", error);
       }
     }
-  }, []);
+
+    // Check for licenses needing notifications when the component mounts
+    const checkInterval = setInterval(() => {
+      if (emailSettings.automaticSending && notificationSettings.enabled) {
+        sendAutomaticNotifications();
+      }
+    }, 86400000); // Check once per day (24 hours in milliseconds)
+    
+    // Initial check
+    if (emailSettings.automaticSending && notificationSettings.enabled) {
+      sendAutomaticNotifications();
+    }
+
+    return () => clearInterval(checkInterval);
+  }, [licenses, emailSettings.automaticSending, notificationSettings.enabled]);
 
   const updateEmailSettings = (settings: Partial<EmailSettings>) => {
     const updatedSettings = {...emailSettings, ...settings};
@@ -95,13 +114,56 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     });
   };
 
+  const sendAutomaticNotifications = () => {
+    if (!notificationSettings.enabled) return;
+    
+    const today = new Date();
+    const oneDay = addDays(today, 1);
+    const sevenDays = addDays(today, 7);
+    const thirtyDays = addDays(today, 30);
+    
+    // Find licenses that are about to expire
+    const oneDayLicenses = findLicensesForNotification(oneDay, today);
+    const sevenDayLicenses = findLicensesForNotification(sevenDays, addDays(today, 6));
+    const thirtyDayLicenses = findLicensesForNotification(thirtyDays, addDays(today, 29));
+    
+    // Send notifications for each license
+    oneDayLicenses.forEach(license => sendEmailNotification(license, "oneDay"));
+    sevenDayLicenses.forEach(license => sendEmailNotification(license, "sevenDays"));
+    thirtyDayLicenses.forEach(license => sendEmailNotification(license, "thirtyDays"));
+  };
+
+  const findLicensesForNotification = (expiryDate: Date, rangeStart: Date) => {
+    return licenses.filter(license => {
+      const renewalDate = new Date(license.renewalDate);
+      return isWithinInterval(renewalDate, { start: rangeStart, end: expiryDate });
+    });
+  };
+
+  const sendEmailNotification = (license: License, templateType: keyof NotificationSettings["emailTemplates"]) => {
+    // In a real application, this would send an actual email using SMTP settings
+    const template = notificationSettings.emailTemplates[templateType];
+    const cardLastFour = license.creditCardDigits || "****";
+    const licenseType = license.type.charAt(0).toUpperCase() + license.type.slice(1);
+    
+    const emailContent = template
+      .replace("{LICENSE_NAME}", license.name)
+      .replace("{LICENSE_TYPE}", licenseType)
+      .replace("{EXPIRY_DATE}", new Date(license.renewalDate).toLocaleDateString())
+      .replace("{CARD_LAST_4}", cardLastFour);
+    
+    console.log(`Sending ${templateType} notification for ${license.name}:`, emailContent);
+    // In a production app, this would use the SMTP settings to send an actual email
+  };
+
   return (
     <NotificationContext.Provider value={{ 
       emailSettings, 
       notificationSettings, 
       updateEmailSettings, 
       updateNotificationSettings,
-      testEmailConnection
+      testEmailConnection,
+      sendAutomaticNotifications
     }}>
       {children}
     </NotificationContext.Provider>

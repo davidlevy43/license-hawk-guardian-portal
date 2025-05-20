@@ -1,4 +1,3 @@
-
 import React, { useMemo } from "react";
 import { useLicenses } from "@/context/LicenseContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -86,7 +85,7 @@ const CalendarPage: React.FC = () => {
       );
     }
     
-    return day.getDate();
+    return <div>{day.getDate()}</div>;
   };
 
   return (

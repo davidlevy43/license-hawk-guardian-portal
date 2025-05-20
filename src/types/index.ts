@@ -1,4 +1,3 @@
-
 export enum UserRole {
   ADMIN = "admin",
   USER = "user"
@@ -47,6 +46,7 @@ export interface License {
   notes: string;
   createdAt: Date;
   updatedAt: Date;
+  creditCardDigits?: string; // Last four digits of the credit card
 }
 
 export interface EmailSettings {
@@ -56,6 +56,7 @@ export interface EmailSettings {
   password: string;
   senderEmail: string;
   senderName: string;
+  automaticSending: boolean; // Flag to enable/disable automatic sending
 }
 
 export interface NotificationSettings {

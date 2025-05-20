@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -51,6 +50,7 @@ const licenseFormSchema = z.object({
   serviceOwner: z.string().min(1, "Service owner is required"),
   status: z.nativeEnum(LicenseStatus),
   notes: z.string().optional(),
+  creditCardDigits: z.string().max(4).optional(),
 });
 
 type FormValues = z.infer<typeof licenseFormSchema>;
@@ -74,8 +74,12 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
       serviceOwner: "",
       status: LicenseStatus.ACTIVE,
       notes: "",
+      creditCardDigits: "",
     },
   });
+
+  // Show credit card digits field only when payment method is credit card
+  const showCreditCardField = form.watch("paymentMethod") === PaymentMethod.CREDIT_CARD;
 
   return (
     <Form {...form}>
@@ -283,6 +287,33 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
                 </FormItem>
               )}
             />
+            
+            {showCreditCardField && (
+              <FormField
+                control={form.control}
+                name="creditCardDigits"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Credit Card (Last 4 digits)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="1234"
+                        maxLength={4}
+                        {...field}
+                        onChange={(e) => {
+                          // Only allow numbers
+                          const value = e.target.value.replace(/[^0-9]/g, '');
+                          if (value.length <= 4) {
+                            field.onChange(value);
+                          }
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
           </div>
         </div>
         
