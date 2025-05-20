@@ -44,6 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Clear invalid session data
       localStorage.removeItem("authToken");
       localStorage.removeItem("userId");
+      toast.error("Your session has expired. Please log in again.");
     } finally {
       setIsLoading(false);
     }
@@ -57,7 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // Get all users from the API
+      // Get all users from the API - in a real app you would have a /login endpoint
       const users = await fetchAPI<User[]>('/users');
       
       // Find user with matching credentials

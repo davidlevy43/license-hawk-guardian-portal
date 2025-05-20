@@ -11,7 +11,7 @@ import {
   CardTitle 
 } from "@/components/ui/card";
 import { toast } from "sonner";
-import { updateApiUrl, forceRealApiMode } from "@/services/api";
+import { updateApiUrl } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 
 // Get the server's IP address (to display as hint)
@@ -29,12 +29,11 @@ const SettingsPage: React.FC = () => {
     setIsLoading(true);
     try {
       // Try to connect to the new API URL
-      const success = await updateApiUrl(apiUrl);
-      if (success) {
-        toast.success("Server connection successful! Settings saved.");
-      } else {
-        toast.error("Could not connect to the server. Using mock data instead.");
-      }
+      await updateApiUrl(apiUrl);
+      toast.success("Server connection successful! Settings saved.");
+      
+      // Refresh the page to apply new API settings
+      setTimeout(() => window.location.reload(), 1000);
     } catch (error: any) {
       toast.error(`Failed to connect: ${error.message}`);
     } finally {
@@ -71,6 +70,10 @@ const SettingsPage: React.FC = () => {
             />
             <p className="text-sm text-muted-foreground">
               Example: http://192.168.1.100:3001
+            </p>
+            <p className="text-sm text-muted-foreground mt-4">
+              <strong>Important:</strong> All clients must connect to the same server to see the same data. 
+              Use your server's network IP address (not localhost) so other computers can connect.
             </p>
           </div>
         </CardContent>
