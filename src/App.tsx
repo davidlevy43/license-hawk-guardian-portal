@@ -20,7 +20,14 @@ import UsersPage from "./pages/UsersPage";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      retryDelay: 500,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -32,10 +39,12 @@ const App = () => (
           <LicenseProvider>
             <NotificationProvider>
               <Routes>
+                {/* Public routes - accessible without authentication */}
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 
+                {/* Protected routes - require authentication */}
                 <Route element={<MainLayout />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/licenses" element={<LicensesPage />} />

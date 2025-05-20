@@ -33,7 +33,7 @@ const SettingsPage: React.FC = () => {
       toast.success("Server connection successful! Settings saved.");
       
       // Refresh the page to apply new API settings
-      setTimeout(() => window.location.reload(), 1000);
+      setTimeout(() => window.location.href = "/", 1000);
     } catch (error: any) {
       toast.error(`Failed to connect: ${error.message}`);
     } finally {
@@ -71,10 +71,16 @@ const SettingsPage: React.FC = () => {
             <p className="text-sm text-muted-foreground">
               Example: http://192.168.1.100:3001
             </p>
-            <p className="text-sm text-muted-foreground mt-4">
-              <strong>Important:</strong> All clients must connect to the same server to see the same data. 
-              Use your server's network IP address (not localhost) so other computers can connect.
-            </p>
+            <div className="bg-amber-50 p-3 rounded-md border border-amber-200 mt-4">
+              <p className="text-sm font-medium text-amber-800">
+                <strong>Important:</strong> All clients must connect to the same server to see the same data. 
+                Use your server's network IP address (not localhost) so other computers can connect.
+              </p>
+              <p className="text-sm text-amber-700 mt-2">
+                The server port (3001) must match the port where your API server is running.
+                This is separate from the web application port (which might be 8080 or another port).
+              </p>
+            </div>
           </div>
         </CardContent>
         <CardFooter>
