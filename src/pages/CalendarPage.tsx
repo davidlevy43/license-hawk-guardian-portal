@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { addDays, format, isSameMonth, parseISO } from "date-fns";
+import { DayProps } from "react-day-picker";
 
 const CalendarPage: React.FC = () => {
   const { licenses, isLoading } = useLicenses();
@@ -65,7 +66,14 @@ const CalendarPage: React.FC = () => {
   }
 
   // Function to render calendar day with badges if there are licenses
-  const renderCalendarDay = (day: Date) => {
+  const renderCalendarDay = (props: DayProps) => {
+    const { date: day, ...rest } = props;
+    
+    // Make sure day is a valid Date object
+    if (!day || !(day instanceof Date) || isNaN(day.getTime())) {
+      return <div>{day ? day.getDate?.() : ''}</div>;
+    }
+    
     const dateStr = format(day, "yyyy-MM-dd");
     const hasLicenses = licenseDates[dateStr]?.length > 0;
     
