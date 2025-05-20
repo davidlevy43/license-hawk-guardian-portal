@@ -1,10 +1,11 @@
+
 import { License, User, UserRole } from '@/types';
 
 // Get the API server URL - will use localhost by default but can be changed
 // You can modify this to point to your server's IP address
 const getApiUrl = () => {
-  // Check if a custom server URL has been set in localStorage
-  const customApiUrl = localStorage.getItem('api_server_url');
+  // Check if a custom server URL has been set in sessionStorage
+  const customApiUrl = sessionStorage.getItem('api_server_url');
   if (customApiUrl) {
     return customApiUrl;
   }
@@ -20,7 +21,7 @@ export const updateApiUrl = async (newUrl: string) => {
   if (!newUrl.endsWith('/api')) {
     newUrl = newUrl.endsWith('/') ? `${newUrl}api` : `${newUrl}/api`;
   }
-  localStorage.setItem('api_server_url', newUrl);
+  sessionStorage.setItem('api_server_url', newUrl);
   API_URL = newUrl;
   
   // Check if server is available

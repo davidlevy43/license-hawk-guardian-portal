@@ -23,15 +23,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Function to check if token is valid and get current user
   const validateSession = async () => {
-    const token = localStorage.getItem("authToken");
+    const token = sessionStorage.getItem("authToken");
     if (!token) {
       setIsLoading(false);
       return;
     }
 
     try {
-      // Get the user id from localStorage
-      const userId = localStorage.getItem("userId");
+      // Get the user id from sessionStorage
+      const userId = sessionStorage.getItem("userId");
       if (!userId) {
         throw new Error("No user ID found");
       }
@@ -42,8 +42,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error("Failed to validate session:", error);
       // Clear invalid session data
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("userId");
+      sessionStorage.removeItem("authToken");
+      sessionStorage.removeItem("userId");
       toast.error("Your session has expired. Please log in again.");
     } finally {
       setIsLoading(false);
@@ -70,9 +70,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error("Invalid email or password");
       }
       
-      // Store authentication info in localStorage
-      localStorage.setItem("authToken", "demo-token"); // In a real app, this would be a JWT
-      localStorage.setItem("userId", user.id);
+      // Store authentication info in sessionStorage instead of localStorage
+      sessionStorage.setItem("authToken", "demo-token"); // In a real app, this would be a JWT
+      sessionStorage.setItem("userId", user.id);
       
       setCurrentUser(user);
       toast.success(`Welcome back, ${user.username}!`);
@@ -85,8 +85,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("userId");
+    sessionStorage.removeItem("authToken");
+    sessionStorage.removeItem("userId");
     setCurrentUser(null);
     toast.info("You have been logged out");
     navigate("/login");

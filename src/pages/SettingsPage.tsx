@@ -22,7 +22,7 @@ const getLocalIpAddress = () => {
 
 const SettingsPage: React.FC = () => {
   const { isAdmin } = useAuth();
-  const [apiUrl, setApiUrl] = useState(() => localStorage.getItem('api_server_url') || `http://${getLocalIpAddress()}:3001`);
+  const [apiUrl, setApiUrl] = useState(() => sessionStorage.getItem('api_server_url') || `http://${getLocalIpAddress()}:3001`);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSaveApiUrl = async () => {
