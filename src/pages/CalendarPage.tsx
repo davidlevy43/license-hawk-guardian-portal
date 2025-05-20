@@ -103,7 +103,7 @@ const CalendarPage: React.FC = () => {
                 onSelect={setSelectedDate}
                 className="rounded-md border"
                 components={{
-                  day: renderCalendarDay,
+                  Day: renderCalendarDay,
                 }}
               />
             </CardContent>
