@@ -1,33 +1,85 @@
+
 import { License, User, UserRole } from '@/types';
 
 // The base URL for your API server
 // In a production environment, this would be your actual server URL
 const API_URL = 'http://localhost:3001/api';
 
-// Mock data for when API is not available
-const MOCK_USERS: User[] = [
-  {
-    id: "1",
-    username: "admin",
-    email: "admin@example.com",
-    role: UserRole.ADMIN,
-    createdAt: new Date()
-  },
-  {
-    id: "2",
-    username: "user",
-    email: "user@example.com",
-    role: UserRole.USER,
-    createdAt: new Date()
-  },
-  {
-    id: "3",
-    username: "manager",
-    email: "manager@example.com",
-    role: UserRole.USER,
-    createdAt: new Date()
+// Load mock data from localStorage or use defaults
+const loadMockUsers = (): User[] => {
+  const storedUsers = localStorage.getItem('mock_users');
+  if (storedUsers) {
+    try {
+      const parsedUsers = JSON.parse(storedUsers);
+      return parsedUsers.map((user: any) => ({
+        ...user,
+        createdAt: new Date(user.createdAt)
+      }));
+    } catch (error) {
+      console.error('Failed to parse stored mock users:', error);
+    }
   }
-];
+  
+  // Default mock users if none in localStorage
+  return [
+    {
+      id: "1",
+      username: "admin",
+      email: "admin@example.com",
+      role: UserRole.ADMIN,
+      createdAt: new Date()
+    },
+    {
+      id: "2",
+      username: "user",
+      email: "user@example.com",
+      role: UserRole.USER,
+      createdAt: new Date()
+    },
+    {
+      id: "3",
+      username: "manager",
+      email: "manager@example.com",
+      role: UserRole.USER,
+      createdAt: new Date()
+    }
+  ];
+};
+
+// Load mock licenses from localStorage or use defaults
+const loadMockLicenses = (): License[] => {
+  const storedLicenses = localStorage.getItem('mock_licenses');
+  if (storedLicenses) {
+    try {
+      const parsedLicenses = JSON.parse(storedLicenses);
+      return parsedLicenses.map((license: any) => ({
+        ...license,
+        startDate: new Date(license.startDate),
+        renewalDate: new Date(license.renewalDate),
+        createdAt: new Date(license.createdAt),
+        updatedAt: new Date(license.updatedAt)
+      }));
+    } catch (error) {
+      console.error('Failed to parse stored mock licenses:', error);
+    }
+  }
+  
+  // Return empty array as default
+  return [];
+};
+
+// Initialize mock data
+let MOCK_USERS: User[] = loadMockUsers();
+let MOCK_LICENSES: License[] = loadMockLicenses();
+
+// Save mock data to localStorage
+const saveMockUsers = () => {
+  localStorage.setItem('mock_users', JSON.stringify(MOCK_USERS));
+};
+
+const saveMockLicenses = () => {
+  localStorage.setItem('mock_licenses', JSON.stringify(MOCK_LICENSES));
+};
 
 // Will be set to true if we detect we can't connect to the real API
 let useMockData = false;
@@ -95,6 +147,7 @@ async function mockAPIResponse<T>(endpoint: string, options: RequestInit): Promi
           createdAt: new Date()
         };
         MOCK_USERS.push(newUser);
+        saveMockUsers(); // Save to localStorage
         return newUser as unknown as T;
       }
       // List users
@@ -111,6 +164,7 @@ async function mockAPIResponse<T>(endpoint: string, options: RequestInit): Promi
     
     if (options.method === 'DELETE') {
       MOCK_USERS.splice(userIndex, 1);
+      saveMockUsers(); // Save to localStorage
       return {} as T;
     }
     
@@ -120,18 +174,64 @@ async function mockAPIResponse<T>(endpoint: string, options: RequestInit): Promi
         ...MOCK_USERS[userIndex],
         ...data
       };
+      saveMockUsers(); // Save to localStorage
       return MOCK_USERS[userIndex] as unknown as T;
     }
     
     return MOCK_USERS[userIndex] as unknown as T;
   }
   
-  // For other endpoints, return empty data for now
-  if (endpoint.includes('licenses')) {
-    return [] as unknown as T;
+  if (endpoint.startsWith('/licenses')) {
+    // Handle licenses endpoints
+    if (endpoint === '/licenses') {
+      if (options.method === 'POST') {
+        // Create license
+        const data = JSON.parse(options.body as string);
+        const now = new Date();
+        const newLicense: License = {
+          id: `mock-${Date.now()}`,
+          ...data,
+          createdAt: now,
+          updatedAt: now
+        };
+        MOCK_LICENSES.push(newLicense);
+        saveMockLicenses(); // Save to localStorage
+        return newLicense as unknown as T;
+      }
+      // List licenses
+      return MOCK_LICENSES as unknown as T;
+    }
+    
+    // License detail operations
+    const licenseId = endpoint.split('/')[2];
+    const licenseIndex = MOCK_LICENSES.findIndex(l => l.id === licenseId);
+    
+    if (licenseIndex === -1) {
+      throw new Error('License not found');
+    }
+    
+    if (options.method === 'DELETE') {
+      MOCK_LICENSES.splice(licenseIndex, 1);
+      saveMockLicenses(); // Save to localStorage
+      return {} as T;
+    }
+    
+    if (options.method === 'PATCH') {
+      const data = JSON.parse(options.body as string);
+      MOCK_LICENSES[licenseIndex] = {
+        ...MOCK_LICENSES[licenseIndex],
+        ...data,
+        updatedAt: new Date()
+      };
+      saveMockLicenses(); // Save to localStorage
+      return MOCK_LICENSES[licenseIndex] as unknown as T;
+    }
+    
+    return MOCK_LICENSES[licenseIndex] as unknown as T;
   }
   
-  return {} as T;
+  // Default empty response
+  return (endpoint.includes('licenses') ? [] : {}) as unknown as T;
 }
 
 // Process license data before sending to API
