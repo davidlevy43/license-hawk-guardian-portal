@@ -1,8 +1,32 @@
+
 import { License, User, UserRole } from '@/types';
 
+// Get the API server URL - will use localhost by default but can be changed
+// You can modify this to point to your server's IP address
+const getApiUrl = () => {
+  // Check if a custom server URL has been set in localStorage
+  const customApiUrl = localStorage.getItem('api_server_url');
+  if (customApiUrl) {
+    return customApiUrl;
+  }
+  // Default to localhost if no custom URL is set
+  return 'http://localhost:3001/api';
+};
+
 // The base URL for your API server
-// In a production environment, this would be your actual server URL
-const API_URL = 'http://localhost:3001/api';
+let API_URL = getApiUrl();
+
+// Function to update the API URL
+export const updateApiUrl = (newUrl: string) => {
+  if (!newUrl.endsWith('/api')) {
+    newUrl = newUrl.endsWith('/') ? `${newUrl}api` : `${newUrl}/api`;
+  }
+  localStorage.setItem('api_server_url', newUrl);
+  API_URL = newUrl;
+  // Reset useMockData to recheck server
+  useMockData = false;
+  return checkServerAvailability();
+};
 
 // Load mock data from localStorage or use defaults
 const loadMockUsers = (): User[] => {
@@ -86,6 +110,7 @@ let useMockData = false;
 // Check if local server is running
 async function checkServerAvailability() {
   try {
+    console.log(`Checking server availability at ${API_URL}/health`);
     const response = await fetch(`${API_URL}/health`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
@@ -94,7 +119,7 @@ async function checkServerAvailability() {
     });
     return response.ok;
   } catch (error) {
-    console.warn('Local server not available, will use mock data:', error);
+    console.warn('Server not available, will use mock data:', error);
     return false;
   }
 }

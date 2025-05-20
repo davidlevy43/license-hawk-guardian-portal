@@ -1,3 +1,4 @@
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -489,10 +490,11 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
-// Start the server
-app.listen(PORT, () => {
+// Start the server - Listen on all network interfaces instead of just localhost
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`API endpoints available at http://localhost:${PORT}/api/`);
+  console.log(`API available at http://YOUR_SERVER_IP:${PORT}/api/`);
+  console.log(`To access from other devices, replace YOUR_SERVER_IP with this machine's IP address`);
 });
 
 // Handle proper shutdown

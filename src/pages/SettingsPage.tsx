@@ -1,28 +1,45 @@
 
-import React from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
-import { useAuth } from "@/context/AuthContext";
+import { Input } from "@/components/ui/input";
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardFooter, 
+  CardHeader, 
+  CardTitle 
+} from "@/components/ui/card";
 import { toast } from "sonner";
+import { updateApiUrl, forceRealApiMode } from "@/services/api";
+import { useAuth } from "@/context/AuthContext";
+
+// Get the server's IP address (to display as hint)
+const getLocalIpAddress = () => {
+  // This will be replaced with the appropriate local IP at runtime
+  return window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname;
+};
 
 const SettingsPage: React.FC = () => {
-  const { currentUser, isAdmin } = useAuth();
+  const { isAdmin } = useAuth();
+  const [apiUrl, setApiUrl] = useState(() => localStorage.getItem('api_server_url') || `http://${getLocalIpAddress()}:3001`);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSaveSettings = () => {
-    toast.success("Settings saved successfully");
-  };
-  
-  const handleExportData = () => {
-    toast.success("Export started. You'll receive a download link shortly.");
-  };
-  
-  const handleResetPassword = () => {
-    toast.success("Password reset email sent");
+  const handleSaveApiUrl = async () => {
+    setIsLoading(true);
+    try {
+      // Try to connect to the new API URL
+      const success = await updateApiUrl(apiUrl);
+      if (success) {
+        toast.success("Server connection successful! Settings saved.");
+      } else {
+        toast.error("Could not connect to the server. Using mock data instead.");
+      }
+    } catch (error: any) {
+      toast.error(`Failed to connect: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -30,164 +47,55 @@ const SettingsPage: React.FC = () => {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">
-          Manage your account and application preferences
+          Configure your application settings
         </p>
       </div>
 
-      <Tabs defaultValue="account">
-        <TabsList className="mb-6">
-          <TabsTrigger value="account">Account</TabsTrigger>
-          <TabsTrigger value="preferences">Preferences</TabsTrigger>
-          {isAdmin && <TabsTrigger value="system">System</TabsTrigger>}
-        </TabsList>
-        
-        <TabsContent value="account">
-          <Card>
-            <CardHeader>
-              <CardTitle>Account Information</CardTitle>
-              <CardDescription>
-                View and update your account details
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
-                  <Input id="username" value={currentUser?.username} readOnly />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" value={currentUser?.email} />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
-                <Input id="role" value={currentUser?.role} readOnly />
-              </div>
-              
-              <Separator />
-              
-              <div>
-                <h3 className="text-lg font-medium mb-4">Security</h3>
-                <div className="space-y-4">
-                  <Button variant="outline" onClick={handleResetPassword}>
-                    Change Password
-                  </Button>
-                </div>
-              </div>
-              
-              <div className="flex justify-end">
-                <Button onClick={handleSaveSettings}>Save Changes</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="preferences">
-          <Card>
-            <CardHeader>
-              <CardTitle>User Preferences</CardTitle>
-              <CardDescription>
-                Customize your experience
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-base">Email Notifications</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Receive email notifications for license renewals
-                    </p>
-                  </div>
-                  <Switch defaultChecked={true} />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-base">Dashboard Alerts</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Show alerts on dashboard for upcoming renewals
-                    </p>
-                  </div>
-                  <Switch defaultChecked={true} />
-                </div>
-              </div>
-              
-              <Separator />
-              
-              <div>
-                <h3 className="text-lg font-medium mb-4">Display</h3>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-base">Compact View</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Show more items per page in compact format
-                      </p>
-                    </div>
-                    <Switch defaultChecked={false} />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex justify-end">
-                <Button onClick={handleSaveSettings}>Save Preferences</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        {isAdmin && (
-          <TabsContent value="system">
-            <Card>
-              <CardHeader>
-                <CardTitle>System Settings</CardTitle>
-                <CardDescription>
-                  Configure system-wide settings (Admin only)
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-medium mb-4">Data Management</h3>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Button variant="outline" onClick={handleExportData}>
-                        Export License Data
-                      </Button>
-                      <Button variant="outline">
-                        Import License Data
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-                
-                <Separator />
-                
-                <div>
-                  <h3 className="text-lg font-medium mb-4">System Maintenance</h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label className="text-base">Maintenance Mode</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Temporarily disable access for non-admin users
-                        </p>
-                      </div>
-                      <Switch defaultChecked={false} />
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex justify-end">
-                  <Button onClick={handleSaveSettings}>Save System Settings</Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
-      </Tabs>
+      <Card className="max-w-xl">
+        <CardHeader>
+          <CardTitle>Server Configuration</CardTitle>
+          <CardDescription>
+            Configure the server URL to connect this client to your license management server
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1">
+            <label className="text-sm font-medium" htmlFor="apiUrl">
+              Server URL
+            </label>
+            <Input
+              id="apiUrl"
+              value={apiUrl}
+              onChange={(e) => setApiUrl(e.target.value)}
+              placeholder="http://server-ip:3001"
+            />
+            <p className="text-sm text-muted-foreground">
+              Example: http://192.168.1.100:3001
+            </p>
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button onClick={handleSaveApiUrl} disabled={isLoading}>
+            {isLoading ? "Connecting..." : "Save and Connect"}
+          </Button>
+        </CardFooter>
+      </Card>
+
+      {isAdmin && (
+        <Card className="max-w-xl">
+          <CardHeader>
+            <CardTitle>Email Notifications</CardTitle>
+            <CardDescription>
+              Configure email notification settings for license renewals
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Email notification settings can be configured by an administrator.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
