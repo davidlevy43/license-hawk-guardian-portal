@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { updateApiUrl, API_URL } from "@/services/api/base";
 import { HealthAPI } from "@/services/api";
 import { useNavigate } from "react-router-dom";
+import { Label } from "@/components/ui/label";
 
 // Get the server's IP address (to display as hint)
 const getLocalIpAddress = () => {
@@ -96,27 +97,30 @@ const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-3xl mx-auto py-8 px-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Connection Settings</h1>
         <p className="text-muted-foreground">
-          Configure your application settings
+          Connect to your license management server
         </p>
       </div>
 
-      <Card className="max-w-xl">
-        <CardHeader>
-          <CardTitle>Server Configuration</CardTitle>
-          <CardDescription>
-            Configure the server URL to connect this client to your license management server
+      <Card className="border-2 border-amber-200">
+        <CardHeader className="bg-amber-50">
+          <CardTitle className="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>Server Connection Required</span>
+          </CardTitle>
+          <CardDescription className="text-amber-800">
+            Your application needs to connect to an API server running on port 3001.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-6">
           {serverStatus === true && (
             <Alert variant="default" className="bg-green-50 border-green-200 mb-4">
               <AlertTitle className="text-green-700">Connected</AlertTitle>
               <AlertDescription className="text-green-600">
-                Currently connected to {sessionStorage.getItem('api_server_url') || API_URL}
+                Successfully connected to {sessionStorage.getItem('api_server_url') || API_URL}
               </AlertDescription>
             </Alert>
           )}
@@ -125,50 +129,74 @@ const SettingsPage: React.FC = () => {
             <Alert variant="destructive" className="mb-4">
               <AlertTitle>Connection Error</AlertTitle>
               <AlertDescription>
-                {connectionError || "Not connected to any server. Please enter a valid server URL."}
+                {connectionError || "Unable to connect to the server. Please ensure the API server is running."}
               </AlertDescription>
             </Alert>
           )}
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium" htmlFor="apiUrl">
-              Server URL
-            </label>
-            <Input
-              id="apiUrl"
-              value={apiUrl}
-              onChange={(e) => setApiUrl(e.target.value)}
-              placeholder="http://server-ip:3001"
-            />
-            <p className="text-sm text-muted-foreground">
-              Example: http://192.168.1.100:3001
-            </p>
-            <div className="bg-amber-50 p-3 rounded-md border border-amber-200 mt-4">
-              <p className="text-sm font-medium text-amber-800">
-                <strong>Important:</strong> All clients must connect to the same server to see the same data. 
-                Use your server's network IP address (not localhost) so other computers can connect.
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+              <h3 className="font-medium text-blue-800">Server Not Running?</h3>
+              <ol className="list-decimal ml-5 mt-2 text-sm text-blue-700 space-y-2">
+                <li>Make sure your API server is running with: <code className="bg-blue-100 px-1 py-0.5 rounded">node server/server.js</code></li>
+                <li>Check that the server is running on port 3001</li>
+                <li>Ensure your frontend is built with: <code className="bg-blue-100 px-1 py-0.5 rounded">npm run build</code> or <code className="bg-blue-100 px-1 py-0.5 rounded">yarn build</code></li>
+              </ol>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="apiUrl">Server URL</Label>
+              <Input
+                id="apiUrl"
+                value={apiUrl}
+                onChange={(e) => setApiUrl(e.target.value)}
+                placeholder="http://server-ip:3001"
+              />
+              <p className="text-sm text-muted-foreground">
+                The URL should include the protocol (http://), server hostname or IP, and port 3001.
               </p>
-              <p className="text-sm text-amber-700 mt-2">
-                The server port (3001) must match the port where your API server is running.
-                This is separate from the web application port (which might be 8080 or another port).
-              </p>
-              <div className="mt-2 p-2 bg-amber-100 rounded border border-amber-300">
-                <p className="text-xs font-medium text-amber-800">
-                  Troubleshooting:
-                </p>
-                <ul className="text-xs text-amber-700 list-disc pl-4 mt-1">
-                  <li>If you entered a server name (like "iltela21"), make sure it's in the format: http://iltela21:3001</li>
-                  <li>The port number (3001) must be included and match your server configuration</li>
-                  <li>Make sure your server is running and accessible from this device</li>
-                  <li>Check network firewall settings if you can't connect to the server</li>
+            </div>
+
+            <div className="bg-muted p-4 rounded-md border space-y-3">
+              <h3 className="font-medium">Connection Troubleshooting</h3>
+              
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Common Configuration</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="justify-start text-left" 
+                    onClick={() => setApiUrl(`http://localhost:3001`)}
+                  >
+                    Local Development: http://localhost:3001
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="justify-start text-left"
+                    onClick={() => setApiUrl(`http://${window.location.hostname}:3001`)}
+                  >
+                    Current Host: http://{window.location.hostname}:3001
+                  </Button>
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="text-sm font-medium mb-2">Checklist</h4>
+                <ul className="text-sm space-y-1 list-disc pl-5">
+                  <li>Server is running on port 3001</li>
+                  <li>No firewall blocking the connection</li>
+                  <li>Correct server IP or hostname</li>
+                  <li>Server and client on same network (if applicable)</li>
                 </ul>
               </div>
             </div>
           </div>
         </CardContent>
-        <CardFooter className="flex flex-wrap gap-2">
+        <CardFooter className="flex flex-wrap gap-2 bg-gray-50 border-t">
           <Button onClick={handleSaveApiUrl} disabled={isLoading}>
-            {isLoading ? "Connecting..." : "Save and Connect"}
+            {isLoading ? "Connecting..." : "Connect to Server"}
           </Button>
           <Button variant="outline" onClick={handleFixUrl} type="button">
             Fix URL Format
