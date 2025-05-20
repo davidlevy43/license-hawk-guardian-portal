@@ -1,4 +1,3 @@
-
 import { License, User, UserRole } from '@/types';
 
 // The base URL for your API server
@@ -81,11 +80,39 @@ const saveMockLicenses = () => {
   localStorage.setItem('mock_licenses', JSON.stringify(MOCK_LICENSES));
 };
 
-// Will be set to true if we detect we can't connect to the real API
+// Set to false initially to always try real API first
 let useMockData = false;
+
+// Check if local server is running
+async function checkServerAvailability() {
+  try {
+    const response = await fetch(`${API_URL}/health`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      // Short timeout to quickly determine if server is available
+      signal: AbortSignal.timeout(2000)
+    });
+    return response.ok;
+  } catch (error) {
+    console.warn('Local server not available, will use mock data:', error);
+    return false;
+  }
+}
 
 // Generic request handler with error management and fallback to mock data
 async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  // If we haven't determined if we should use mock data yet, check server availability
+  if (!useMockData) {
+    const serverAvailable = await checkServerAvailability();
+    useMockData = !serverAvailable;
+    
+    if (!serverAvailable) {
+      console.warn('Server not available. Using mock data mode. Please start your local server to use real data.');
+    } else {
+      console.log('Connected to local server successfully!');
+    }
+  }
+  
   if (useMockData) {
     return mockAPIResponse<T>(endpoint, options);
   }
@@ -115,14 +142,22 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
   } catch (error) {
     console.error('API Error:', error);
     
-    // If this is our first error, switch to mock data
+    // If this is our first real API error, try checking server availability again
     if (!useMockData) {
-      console.log('Switching to mock data mode');
-      useMockData = true;
-      return mockAPIResponse<T>(endpoint, options);
+      console.log('API error occurred, checking server availability...');
+      const serverAvailable = await checkServerAvailability();
+      
+      if (!serverAvailable) {
+        console.warn('Server seems to be down, switching to mock data mode');
+        useMockData = true;
+        return mockAPIResponse<T>(endpoint, options);
+      } else {
+        // Server is available but request failed for another reason
+        throw error;
+      }
+    } else {
+      throw error;
     }
-    
-    throw error;
   }
 }
 
@@ -404,4 +439,31 @@ export const UserAPI = {
       throw error;
     }
   },
+};
+
+// Add an explicit function to force real API mode
+export const forceRealApiMode = async () => {
+  useMockData = false;
+  const serverAvailable = await checkServerAvailability();
+  if (!serverAvailable) {
+    throw new Error('Local server not available. Please make sure your server is running on http://localhost:3001');
+  }
+  console.log('Successfully connected to local server.');
+  return serverAvailable;
+};
+
+// Add health check API
+export const HealthAPI = {
+  checkServer: async () => {
+    try {
+      await fetch(`${API_URL}/health`, { 
+        method: 'GET',
+        signal: AbortSignal.timeout(3000) 
+      });
+      return true;
+    } catch (error) {
+      console.error('Server health check failed:', error);
+      return false;
+    }
+  }
 };
