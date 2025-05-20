@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -15,8 +15,10 @@ import {
 } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { toast } from "sonner";
+import { AlertCircle, Settings } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const formSchema = z.object({
   email: z.string().email("Please enter a valid email address").min(1, "Email is required"),
@@ -28,6 +30,7 @@ type FormValues = z.infer<typeof formSchema>;
 const LoginPage: React.FC = () => {
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
+  const [showServerAlert, setShowServerAlert] = useState(false);
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -42,7 +45,8 @@ const LoginPage: React.FC = () => {
       await login(data.email, data.password);
       // The redirect is handled in the login function
     } catch (error) {
-      // Error is handled in the login function
+      // If there's an error, we'll show the server alert
+      setShowServerAlert(true);
     }
   };
 
@@ -56,6 +60,19 @@ const LoginPage: React.FC = () => {
           <h1 className="text-2xl font-bold">License Manager</h1>
           <p className="text-muted-foreground">Sign in to your account</p>
         </div>
+
+        {showServerAlert && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Connection to server failed. Please check your{" "}
+              <Link to="/settings" className="font-medium underline underline-offset-4">
+                server settings
+              </Link>
+              .
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Card>
           <CardHeader>
@@ -114,6 +131,12 @@ const LoginPage: React.FC = () => {
               </form>
             </Form>
           </CardContent>
+          <CardFooter className="flex justify-center border-t p-4">
+            <Button variant="outline" size="sm" onClick={() => navigate("/settings")} className="flex gap-2">
+              <Settings className="h-4 w-4" />
+              Server Settings
+            </Button>
+          </CardFooter>
         </Card>
       </div>
     </div>

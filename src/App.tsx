@@ -3,11 +3,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { LicenseProvider } from "@/context/LicenseContext";
 import { NotificationProvider } from "@/context/NotificationContext";
 import MainLayout from "@/components/layout/MainLayout";
+import Index from "./pages/Index";
 
 // Pages
 import LoginPage from "./pages/LoginPage";
@@ -31,16 +32,16 @@ const App = () => (
           <LicenseProvider>
             <NotificationProvider>
               <Routes>
+                <Route path="/" element={<Index />} />
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
                 
                 <Route element={<MainLayout />}>
-                  <Route path="/" element={<Dashboard />} />
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/licenses" element={<LicensesPage />} />
                   <Route path="/calendar" element={<CalendarPage />} />
                   <Route path="/notifications" element={<NotificationsPage />} />
                   <Route path="/users" element={<UsersPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
                 </Route>
                 
                 <Route path="*" element={<NotFound />} />

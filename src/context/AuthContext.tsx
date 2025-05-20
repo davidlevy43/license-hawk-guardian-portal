@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { User, UserRole } from "@/types";
 import { toast } from "sonner";
-import { fetchAPI } from "@/services/api";
+import { fetchAPI, HealthAPI } from "@/services/api";
 
 interface AuthContextType {
   currentUser: User | null;
@@ -58,6 +58,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
+      // First check if the server is available
+      const serverAvailable = await HealthAPI.checkServer();
+      if (!serverAvailable) {
+        throw new Error("Server connection failed. Please check your server settings.");
+      }
+      
       // Get all users from the API - in a real app you would have a /login endpoint
       const users = await fetchAPI<User[]>('/users');
       
@@ -78,7 +84,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast.success(`Welcome back, ${user.username}!`);
       navigate("/dashboard");
     } catch (error: any) {
-      toast.error(error.message || "Login failed");
+      // Provide more helpful error messages for different failure scenarios
+      if (error.message.includes("Failed to fetch") || error.message.includes("Server connection failed")) {
+        toast.error("Unable to connect to the server. Please check your server settings in the Settings page.");
+        // Navigate to settings page to help user fix the connection
+        navigate("/settings");
+      } else {
+        toast.error(error.message || "Login failed");
+      }
     } finally {
       setIsLoading(false);
     }
