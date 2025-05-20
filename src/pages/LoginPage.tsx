@@ -114,15 +114,6 @@ const LoginPage: React.FC = () => {
               </form>
             </Form>
           </CardContent>
-          <CardFooter className="flex flex-col">
-            <div className="mt-2 text-center text-sm text-muted-foreground">
-              <p>
-                <strong>Demo Credentials:</strong>
-              </p>
-              <p>Admin: admin / admin123</p>
-              <p>User: user / user123</p>
-            </div>
-          </CardFooter>
         </Card>
       </div>
     </div>
