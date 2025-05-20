@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Navigate } from "react-router-dom";
@@ -24,56 +25,26 @@ import {
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
-import db from "@/services/db";
-
-// Mock users for demo
-const MOCK_USERS: User[] = [
-  {
-    id: "1",
-    username: "admin",
-    email: "admin@example.com",
-    role: UserRole.ADMIN,
-    createdAt: new Date(2023, 0, 15)
-  },
-  {
-    id: "2",
-    username: "user",
-    email: "user@example.com",
-    role: UserRole.USER,
-    createdAt: new Date(2023, 1, 10)
-  },
-  {
-    id: "3",
-    username: "johndoe",
-    email: "john.doe@example.com",
-    role: UserRole.USER,
-    createdAt: new Date(2023, 2, 5)
-  },
-  {
-    id: "4",
-    username: "janedoe",
-    email: "jane.doe@example.com",
-    role: UserRole.USER,
-    createdAt: new Date(2023, 3, 20)
-  },
-];
+import { UserAPI } from "@/services/api";
 
 const UsersPage: React.FC = () => {
   const { isAdmin, currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
 
-  // Load users from database
+  // Load users from API
   useEffect(() => {
     const loadUsers = async () => {
       try {
-        const dbUsers = await db.users.toArray();
+        setIsLoading(true);
+        const apiUsers = await UserAPI.getAll();
         
         // Convert date strings to Date objects if needed
-        const processedUsers = dbUsers.map(user => ({
+        const processedUsers = apiUsers.map(user => ({
           ...user,
           createdAt: user.createdAt instanceof Date ? user.createdAt : new Date(user.createdAt)
         }));
@@ -82,6 +53,8 @@ const UsersPage: React.FC = () => {
       } catch (error) {
         console.error("Error loading users:", error);
         toast.error("Failed to load users");
+      } finally {
+        setIsLoading(false);
       }
     };
     
@@ -115,27 +88,27 @@ const UsersPage: React.FC = () => {
 
   const handleSubmit = async (formData: any) => {
     try {
+      setIsLoading(true);
+      
       if (selectedUser) {
         // Update existing user
-        await db.users.update(selectedUser.id, formData);
+        const updatedUser = await UserAPI.update(selectedUser.id, formData);
         
         setUsers(users.map(user => 
           user.id === selectedUser.id 
-            ? { ...user, ...formData } 
+            ? updatedUser
             : user
         ));
         toast.success(`User ${formData.username} updated successfully`);
       } else {
         // Add new user
-        const newUser: User = {
-          id: (Date.now()).toString(),
+        const newUser = await UserAPI.create({
           username: formData.username,
           email: formData.email,
           role: formData.role,
           createdAt: new Date()
-        };
+        });
         
-        await db.users.add(newUser);
         setUsers([...users, newUser]);
         toast.success(`User ${formData.username} created successfully`);
       }
@@ -144,12 +117,16 @@ const UsersPage: React.FC = () => {
     } catch (error) {
       console.error("Error saving user:", error);
       toast.error("Failed to save user");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleDeleteConfirm = async () => {
     if (selectedUser) {
       try {
+        setIsLoading(true);
+        
         // Prevent deleting self
         if (selectedUser.id === currentUser?.id) {
           toast.error("You cannot delete your own account");
@@ -158,8 +135,8 @@ const UsersPage: React.FC = () => {
           return;
         }
         
-        // Delete from database
-        await db.users.delete(selectedUser.id);
+        // Delete from API
+        await UserAPI.delete(selectedUser.id);
         
         // Update state
         setUsers(users.filter(user => user.id !== selectedUser.id));
@@ -167,6 +144,8 @@ const UsersPage: React.FC = () => {
       } catch (error) {
         console.error("Error deleting user:", error);
         toast.error("Failed to delete user");
+      } finally {
+        setIsLoading(false);
       }
     }
     
@@ -202,17 +181,23 @@ const UsersPage: React.FC = () => {
             Manage user accounts and permissions
           </p>
         </div>
-        <Button onClick={() => handleOpenForm()}>
+        <Button onClick={() => handleOpenForm()} disabled={isLoading}>
           <Plus className="mr-2 h-4 w-4" /> Add User
         </Button>
       </div>
 
-      <UserTable 
-        users={users}
-        onEdit={handleOpenForm}
-        onDelete={handleOpenDeleteDialog}
-        onResetPassword={handleOpenResetPasswordDialog}
-      />
+      {isLoading ? (
+        <div className="flex justify-center py-8">
+          <p>Loading users...</p>
+        </div>
+      ) : (
+        <UserTable 
+          users={users}
+          onEdit={handleOpenForm}
+          onDelete={handleOpenDeleteDialog}
+          onResetPassword={handleOpenResetPasswordDialog}
+        />
+      )}
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent>

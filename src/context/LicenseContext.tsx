@@ -1,8 +1,9 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { License, LicenseStatus, LicenseType, PaymentMethod } from "@/types";
 import { format, addMonths } from "date-fns";
 import { toast } from "sonner";
-import db, { initializeDatabase } from "@/services/db";
+import { LicenseAPI } from "@/services/api";
 
 interface LicenseContextType {
   licenses: License[];
@@ -34,19 +35,16 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // Load licenses from IndexedDB
+    // Load licenses from API
     const loadLicenses = async () => {
       try {
         setIsLoading(true);
         
-        // Initialize the database if needed
-        await initializeDatabase();
-        
-        // Get all licenses from the database
-        const dbLicenses = await db.licenses.toArray();
+        // Get all licenses from the API
+        const apiLicenses = await LicenseAPI.getAll();
         
         // Convert date strings to Date objects if needed
-        const processedLicenses = dbLicenses.map(license => ({
+        const processedLicenses = apiLicenses.map(license => ({
           ...license,
           startDate: license.startDate instanceof Date ? license.startDate : new Date(license.startDate),
           renewalDate: license.renewalDate instanceof Date ? license.renewalDate : new Date(license.renewalDate),
@@ -67,16 +65,10 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   const addLicense = async (licenseData: Omit<License, "id" | "createdAt" | "updatedAt">) => {
-    const newLicense: License = {
-      ...licenseData,
-      id: (Date.now()).toString(), // Better ID generation
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    
     try {
-      // Add to database
-      await db.licenses.add(newLicense);
+      setIsLoading(true);
+      // Add to API
+      const newLicense = await LicenseAPI.create(licenseData);
       
       // Update state
       setLicenses(prev => [...prev, newLicense]);
@@ -84,26 +76,21 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (error) {
       console.error("Error adding license:", error);
       toast.error("Failed to add license");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const updateLicense = async (id: string, licenseData: Partial<License>) => {
     try {
-      const updatedData = {
-        ...licenseData,
-        updatedAt: new Date()
-      };
-      
-      // Update in database
-      await db.licenses.update(id, updatedData);
+      setIsLoading(true);
+      // Update in API
+      const updatedLicense = await LicenseAPI.update(id, licenseData);
       
       // Update state
       setLicenses(prev => prev.map(license => {
         if (license.id === id) {
-          return {
-            ...license,
-            ...updatedData
-          };
+          return updatedLicense;
         }
         return license;
       }));
@@ -112,15 +99,18 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (error) {
       console.error("Error updating license:", error);
       toast.error("Failed to update license");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const deleteLicense = async (id: string) => {
     try {
       const licenseToDelete = licenses.find(l => l.id === id);
+      setIsLoading(true);
       
-      // Delete from database
-      await db.licenses.delete(id);
+      // Delete from API
+      await LicenseAPI.delete(id);
       
       // Update state
       setLicenses(prev => prev.filter(license => license.id !== id));
@@ -131,6 +121,8 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (error) {
       console.error("Error deleting license:", error);
       toast.error("Failed to delete license");
+    } finally {
+      setIsLoading(false);
     }
   };
 

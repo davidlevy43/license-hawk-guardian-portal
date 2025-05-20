@@ -1,6 +1,7 @@
+
 import Dexie, { Table } from 'dexie';
-import { License, User } from '@/types';
-import { format } from 'date-fns';
+import { License, LicenseStatus, LicenseType, PaymentMethod, User, UserRole } from '@/types';
+import { format, addMonths } from 'date-fns';
 
 // Define the database
 class AppDatabase extends Dexie {
@@ -111,28 +112,28 @@ const generateMockUsers = (): User[] => {
       id: "1",
       username: "admin",
       email: "admin@example.com",
-      role: "admin",
+      role: UserRole.ADMIN,
       createdAt: new Date(2023, 0, 15)
     },
     {
       id: "2",
       username: "user",
       email: "user@example.com",
-      role: "user",
+      role: UserRole.USER,
       createdAt: new Date(2023, 1, 10)
     },
     {
       id: "3",
       username: "johndoe",
       email: "john.doe@example.com",
-      role: "user",
+      role: UserRole.USER,
       createdAt: new Date(2023, 2, 5)
     },
     {
       id: "4",
       username: "janedoe",
       email: "jane.doe@example.com",
-      role: "user",
+      role: UserRole.USER,
       createdAt: new Date(2023, 3, 20)
     },
   ];
