@@ -14,7 +14,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { updateApiUrl, API_URL } from "@/services/api/base";
 import { HealthAPI } from "@/services/api";
-import { useAuth } from "@/context/AuthContext";
 
 // Get the server's IP address (to display as hint)
 const getLocalIpAddress = () => {
@@ -23,7 +22,6 @@ const getLocalIpAddress = () => {
 };
 
 const SettingsPage: React.FC = () => {
-  const { isAdmin } = useAuth();
   const [apiUrl, setApiUrl] = useState(() => sessionStorage.getItem('api_server_url') || `http://${getLocalIpAddress()}:3001`);
   const [isLoading, setIsLoading] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -52,8 +50,8 @@ const SettingsPage: React.FC = () => {
       toast.success("Server connection successful! Settings saved.");
       setServerStatus(true);
       
-      // Refresh the page to apply new API settings
-      setTimeout(() => window.location.href = "/", 1000);
+      // Redirect to login page instead of index/home page
+      setTimeout(() => window.location.href = "/login", 1000);
     } catch (error: any) {
       setConnectionError(`Could not connect to the server at ${apiUrl}`);
       setServerStatus(false);
@@ -65,21 +63,33 @@ const SettingsPage: React.FC = () => {
 
   // Fix URL if user entered incorrect format
   const handleFixUrl = () => {
-    // Extract hostname/IP from the current URL
     try {
-      const url = new URL(apiUrl);
-      // Ensure it has the correct format with protocol and port
-      const fixedUrl = `http://${url.hostname}:3001`;
-      setApiUrl(fixedUrl);
-      toast.info("URL format corrected. Try connecting now.");
-    } catch (e) {
-      // If the URL is not valid, try to extract just the hostname part
-      const hostnameMatch = apiUrl.match(/([^\/:\s]+)/);
-      if (hostnameMatch && hostnameMatch[1]) {
-        const hostname = hostnameMatch[1];
-        setApiUrl(`http://${hostname}:3001`);
-        toast.info("URL format corrected. Try connecting now.");
+      // Try to parse the URL
+      let fixedUrl = apiUrl;
+      
+      // Add protocol if missing
+      if (!fixedUrl.includes('://')) {
+        fixedUrl = `http://${fixedUrl}`;
       }
+      
+      // Extract hostname/IP from URL
+      try {
+        const url = new URL(fixedUrl);
+        // Make sure it only contains protocol + hostname + correct API port (3001)
+        fixedUrl = `${url.protocol}//${url.hostname}:3001`;
+      } catch {
+        // If URL parsing fails, try to extract just hostname and add correct port
+        const hostnameMatch = fixedUrl.match(/([^\/:\s]+)/);
+        if (hostnameMatch && hostnameMatch[1]) {
+          const hostname = hostnameMatch[1];
+          fixedUrl = `http://${hostname}:3001`;
+        }
+      }
+      
+      setApiUrl(fixedUrl);
+      toast.info("URL format corrected to API server format. Try connecting now.");
+    } catch (e) {
+      toast.error("Could not fix URL format automatically. Please check the URL format manually.");
     }
   };
 
@@ -163,22 +173,6 @@ const SettingsPage: React.FC = () => {
           </Button>
         </CardFooter>
       </Card>
-
-      {isAdmin && (
-        <Card className="max-w-xl">
-          <CardHeader>
-            <CardTitle>Email Notifications</CardTitle>
-            <CardDescription>
-              Configure email notification settings for license renewals
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Email notification settings can be configured by an administrator.
-            </p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };

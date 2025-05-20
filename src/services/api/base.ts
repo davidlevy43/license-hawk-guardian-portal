@@ -25,6 +25,10 @@ export const updateApiUrl = async (newUrl: string) => {
   // Remove trailing slash if exists
   newUrl = newUrl.endsWith('/') ? newUrl.slice(0, -1) : newUrl;
   
+  // Remove /api, /login or other paths from the URL if they exist
+  const urlObj = new URL(newUrl);
+  newUrl = `${urlObj.protocol}//${urlObj.host}`;
+  
   // Store the URL for display purposes
   sessionStorage.setItem('api_server_url', newUrl);
   API_URL = newUrl;
@@ -49,7 +53,15 @@ export async function checkServerAvailability() {
       headers: { 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(5000) // Increase timeout to 5 seconds
     });
-    return response.ok;
+    
+    // Check if response is valid JSON
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      return response.ok;
+    } else {
+      console.error('Server returned non-JSON response');
+      return false;
+    }
   } catch (error) {
     console.error('Server not available:', error);
     return false;
@@ -84,6 +96,12 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
     });
 
     if (!response.ok) {
+      // Check if we received HTML instead of JSON (likely a web server error page)
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("text/html")) {
+        throw new Error(`Server returned HTML instead of JSON. The server at ${API_URL} may not be an API server.`);
+      }
+      
       // Try to parse the error response
       let errorMessage: string;
       try {
@@ -98,6 +116,12 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
     // For DELETE requests that return 204 No Content
     if (response.status === 204) {
       return {} as T;
+    }
+
+    // Check if we received HTML instead of JSON (can happen with some error responses)
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("text/html")) {
+      throw new Error(`Server returned HTML instead of JSON. The server at ${API_URL} may not be an API server.`);
     }
 
     return await response.json();

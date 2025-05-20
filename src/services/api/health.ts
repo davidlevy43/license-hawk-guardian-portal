@@ -11,7 +11,15 @@ export const HealthAPI = {
         headers: { 'Content-Type': 'application/json' },
         signal: AbortSignal.timeout(5000)
       });
-      return response.ok;
+      
+      // Check if response is valid JSON
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        return response.ok;
+      } else {
+        console.error('Server returned non-JSON response');
+        return false;
+      }
     } catch (error) {
       console.error('Server health check failed:', error);
       return false;
