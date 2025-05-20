@@ -71,8 +71,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const user = users.find(u => u.email === email);
       
       // In a real-world app, password verification would happen on the server
-      // For this demo, we're checking if a user with the email exists and using a simple password check
-      if (!user || (email !== "admin@example.com" && email !== "user@example.com")) {
+      // For this demo, we're simulating basic authentication
+      if (!user || !validatePassword(email, password)) {
         throw new Error("Invalid email or password");
       }
       
@@ -95,6 +95,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Simple password validation function
+  const validatePassword = (email: string, password: string) => {
+    // For the demo, we'll use basic validation
+    // In a real app, this would be handled securely on the server
+    
+    // Special case for the two demo accounts
+    if (email === "admin@example.com" && password === "admin123") return true;
+    if (email === "user@example.com" && password === "user123") return true;
+    
+    // For any other user, check if password contains "123" for this demo
+    // In production, we'd compare with a properly hashed password from the DB
+    return password.includes("123");
   };
 
   const logout = () => {
