@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Navigate } from "react-router-dom";
@@ -25,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
+import db from "@/services/db";
 
 // Mock users for demo
 const MOCK_USERS: User[] = [
@@ -66,34 +66,27 @@ const UsersPage: React.FC = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
 
-  // Load users from localStorage or use mock data
+  // Load users from database
   useEffect(() => {
-    const savedUsers = localStorage.getItem('appUsers');
-    if (savedUsers) {
+    const loadUsers = async () => {
       try {
-        // Parse the saved users and convert date strings back to Date objects
-        const parsedUsers = JSON.parse(savedUsers, (key, value) => {
-          if (key === 'createdAt') {
-            return new Date(value);
-          }
-          return value;
-        });
-        setUsers(parsedUsers);
+        const dbUsers = await db.users.toArray();
+        
+        // Convert date strings to Date objects if needed
+        const processedUsers = dbUsers.map(user => ({
+          ...user,
+          createdAt: user.createdAt instanceof Date ? user.createdAt : new Date(user.createdAt)
+        }));
+        
+        setUsers(processedUsers);
       } catch (error) {
-        console.error('Error parsing saved users:', error);
-        setUsers(MOCK_USERS);
+        console.error("Error loading users:", error);
+        toast.error("Failed to load users");
       }
-    } else {
-      setUsers(MOCK_USERS);
-    }
+    };
+    
+    loadUsers();
   }, []);
-
-  // Save users to localStorage whenever they change
-  useEffect(() => {
-    if (users.length > 0) {
-      localStorage.setItem('appUsers', JSON.stringify(users));
-    }
-  }, [users]);
 
   // Redirect non-admin users
   if (!isAdmin) {
@@ -120,43 +113,61 @@ const UsersPage: React.FC = () => {
     setIsResetPasswordDialogOpen(true);
   };
 
-  const handleSubmit = (formData: any) => {
-    if (selectedUser) {
-      // Update existing user
-      setUsers(users.map(user => 
-        user.id === selectedUser.id 
-          ? { ...user, ...formData } 
-          : user
-      ));
-      toast.success(`User ${formData.username} updated successfully`);
-    } else {
-      // Add new user
-      const newUser: User = {
-        id: (users.length + 1).toString(),
-        username: formData.username,
-        email: formData.email,
-        role: formData.role,
-        createdAt: new Date()
-      };
-      setUsers([...users, newUser]);
-      toast.success(`User ${formData.username} created successfully`);
-    }
-    
-    handleCloseForm();
-  };
-
-  const handleDeleteConfirm = () => {
-    if (selectedUser) {
-      // Prevent deleting self
-      if (selectedUser.id === currentUser?.id) {
-        toast.error("You cannot delete your own account");
-        setIsDeleteDialogOpen(false);
-        setSelectedUser(null);
-        return;
+  const handleSubmit = async (formData: any) => {
+    try {
+      if (selectedUser) {
+        // Update existing user
+        await db.users.update(selectedUser.id, formData);
+        
+        setUsers(users.map(user => 
+          user.id === selectedUser.id 
+            ? { ...user, ...formData } 
+            : user
+        ));
+        toast.success(`User ${formData.username} updated successfully`);
+      } else {
+        // Add new user
+        const newUser: User = {
+          id: (Date.now()).toString(),
+          username: formData.username,
+          email: formData.email,
+          role: formData.role,
+          createdAt: new Date()
+        };
+        
+        await db.users.add(newUser);
+        setUsers([...users, newUser]);
+        toast.success(`User ${formData.username} created successfully`);
       }
       
-      setUsers(users.filter(user => user.id !== selectedUser.id));
-      toast.success(`User ${selectedUser.username} deleted successfully`);
+      handleCloseForm();
+    } catch (error) {
+      console.error("Error saving user:", error);
+      toast.error("Failed to save user");
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (selectedUser) {
+      try {
+        // Prevent deleting self
+        if (selectedUser.id === currentUser?.id) {
+          toast.error("You cannot delete your own account");
+          setIsDeleteDialogOpen(false);
+          setSelectedUser(null);
+          return;
+        }
+        
+        // Delete from database
+        await db.users.delete(selectedUser.id);
+        
+        // Update state
+        setUsers(users.filter(user => user.id !== selectedUser.id));
+        toast.success(`User ${selectedUser.username} deleted successfully`);
+      } catch (error) {
+        console.error("Error deleting user:", error);
+        toast.error("Failed to delete user");
+      }
     }
     
     setIsDeleteDialogOpen(false);
