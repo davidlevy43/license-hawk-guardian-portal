@@ -99,8 +99,8 @@ async function checkServerAvailability() {
   }
 }
 
-// Generic request handler with error management and fallback to mock data
-async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+// Export the fetchAPI function so it can be used by AuthContext
+export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   // If we haven't determined if we should use mock data yet, check server availability
   if (!useMockData) {
     const serverAvailable = await checkServerAvailability();

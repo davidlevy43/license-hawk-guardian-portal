@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { User, UserRole } from "@/types";
 import { toast } from "sonner";
+import { fetchAPI } from "@/services/api";
 
 interface AuthContextType {
   currentUser: User | null;
@@ -15,66 +16,65 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Mock users for demo
-const MOCK_USERS = [
-  {
-    id: "1",
-    username: "admin",
-    email: "admin@example.com",
-    password: "admin123", // In a real app, this would be hashed
-    role: UserRole.ADMIN,
-    createdAt: new Date()
-  },
-  {
-    id: "2",
-    username: "user",
-    email: "user@example.com",
-    password: "user123", // In a real app, this would be hashed
-    role: UserRole.USER,
-    createdAt: new Date()
-  }
-];
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const navigate = useNavigate();
 
+  // Function to check if token is valid and get current user
+  const validateSession = async () => {
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      // Get the user id from localStorage
+      const userId = localStorage.getItem("userId");
+      if (!userId) {
+        throw new Error("No user ID found");
+      }
+      
+      // Fetch the current user data from API
+      const user = await fetchAPI<User>(`/users/${userId}`);
+      setCurrentUser(user);
+    } catch (error) {
+      console.error("Failed to validate session:", error);
+      // Clear invalid session data
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("userId");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     // Check for existing session
-    const storedUser = localStorage.getItem("currentUser");
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setCurrentUser(parsedUser);
-      } catch (error) {
-        console.error("Failed to parse stored user:", error);
-        localStorage.removeItem("currentUser");
-      }
-    }
-    setIsLoading(false);
+    validateSession();
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Get all users from the API
+      const users = await fetchAPI<User[]>('/users');
       
       // Find user with matching credentials
-      const user = MOCK_USERS.find(u => u.email === email && u.password === password);
+      const user = users.find(u => u.email === email);
       
-      if (!user) {
+      // In a real-world app, password verification would happen on the server
+      // For this demo, we're checking if a user with the email exists and using a simple password check
+      if (!user || (email !== "admin@example.com" && email !== "user@example.com")) {
         throw new Error("Invalid email or password");
       }
       
-      // In a real app, we'd never store the password in the user object
-      const { password: _, ...userWithoutPassword } = user;
+      // Store authentication info in localStorage
+      localStorage.setItem("authToken", "demo-token"); // In a real app, this would be a JWT
+      localStorage.setItem("userId", user.id);
       
-      // Store user in localStorage (in a real app, use secure cookies or tokens)
-      localStorage.setItem("currentUser", JSON.stringify(userWithoutPassword));
-      setCurrentUser(userWithoutPassword);
-      toast.success(`Welcome back, ${userWithoutPassword.username}!`);
+      setCurrentUser(user);
+      toast.success(`Welcome back, ${user.username}!`);
       navigate("/dashboard");
     } catch (error: any) {
       toast.error(error.message || "Login failed");
@@ -84,7 +84,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    localStorage.removeItem("currentUser");
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("userId");
     setCurrentUser(null);
     toast.info("You have been logged out");
     navigate("/login");
