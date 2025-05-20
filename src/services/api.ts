@@ -56,6 +56,7 @@ const prepareLicenseData = (license: Omit<License, 'id' | 'createdAt' | 'updated
 const processLicense = (license: any): License => {
   return {
     ...license,
+    // Convert string dates to Date objects
     startDate: new Date(license.startDate),
     renewalDate: new Date(license.renewalDate),
     createdAt: new Date(license.createdAt),
@@ -68,7 +69,7 @@ export const LicenseAPI = {
   getAll: async () => {
     try {
       console.log('Fetching all licenses');
-      const licenses = await fetchAPI<License[]>('/licenses');
+      const licenses = await fetchAPI<any[]>('/licenses');
       return licenses.map(processLicense);
     } catch (error) {
       console.error('Failed to fetch licenses:', error);
@@ -78,7 +79,7 @@ export const LicenseAPI = {
   
   getById: async (id: string) => {
     try {
-      const license = await fetchAPI<License>(`/licenses/${id}`);
+      const license = await fetchAPI<any>(`/licenses/${id}`);
       return processLicense(license);
     } catch (error) {
       console.error(`Failed to fetch license ${id}:`, error);
@@ -92,7 +93,7 @@ export const LicenseAPI = {
       const preparedData = prepareLicenseData(license);
       console.log('Prepared license data:', preparedData);
       
-      const newLicense = await fetchAPI<License>('/licenses', {
+      const newLicense = await fetchAPI<any>('/licenses', {
         method: 'POST',
         body: JSON.stringify(preparedData),
       });
@@ -107,7 +108,7 @@ export const LicenseAPI = {
   update: async (id: string, license: Partial<License>) => {
     try {
       const preparedData = prepareLicenseData(license);
-      const updatedLicense = await fetchAPI<License>(`/licenses/${id}`, {
+      const updatedLicense = await fetchAPI<any>(`/licenses/${id}`, {
         method: 'PATCH',
         body: JSON.stringify(preparedData),
       });
@@ -137,7 +138,7 @@ export const UserAPI = {
   getAll: async () => {
     try {
       console.log('Fetching all users');
-      const users = await fetchAPI<User[]>('/users');
+      const users = await fetchAPI<any[]>('/users');
       return users.map(user => ({
         ...user,
         createdAt: new Date(user.createdAt)

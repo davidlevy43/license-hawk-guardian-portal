@@ -1,3 +1,4 @@
+
 import React from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -36,6 +37,7 @@ interface LicenseFormProps {
   initialData?: License;
   onSubmit: (data: z.infer<typeof licenseFormSchema>) => void;
   onCancel: () => void;
+  isSubmitting?: boolean; // Added isSubmitting prop
 }
 
 const licenseFormSchema = z.object({
@@ -59,6 +61,7 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
   initialData,
   onSubmit,
   onCancel,
+  isSubmitting = false, // Default to false if not provided
 }) => {
   const form = useForm<FormValues>({
     resolver: zodResolver(licenseFormSchema),
@@ -386,11 +389,14 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
         
         {/* Form Actions */}
         <div className="flex justify-end space-x-4">
-          <Button type="button" variant="outline" onClick={onCancel}>
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit">
-            {initialData ? "Update License" : "Add License"}
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting 
+              ? (initialData ? "Updating..." : "Adding...")
+              : (initialData ? "Update License" : "Add License")
+            }
           </Button>
         </div>
       </form>
