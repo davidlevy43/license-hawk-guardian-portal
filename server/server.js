@@ -28,7 +28,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
 // Initialize database tables
 function initializeDatabase() {
-  // Users table
+  // Create Users table first and wait for completion
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -38,31 +38,50 @@ function initializeDatabase() {
       role TEXT NOT NULL,
       createdAt TEXT NOT NULL
     )
-  `);
-  
-  // Licenses table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS licenses (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      type TEXT NOT NULL,
-      department TEXT NOT NULL,
-      supplier TEXT NOT NULL,
-      startDate TEXT NOT NULL,
-      renewalDate TEXT NOT NULL,
-      monthlyCost REAL NOT NULL,
-      paymentMethod TEXT NOT NULL,
-      serviceOwner TEXT NOT NULL,
-      serviceOwnerEmail TEXT,
-      status TEXT NOT NULL,
-      notes TEXT,
-      createdAt TEXT NOT NULL,
-      updatedAt TEXT NOT NULL,
-      creditCardDigits TEXT
-    )
-  `);
-  
-  // Check if admin user exists, if not create one
+  `, (err) => {
+    if (err) {
+      console.error('Error creating users table:', err.message);
+      return;
+    }
+    
+    console.log('Users table initialized');
+    
+    // Now create Licenses table and wait for completion
+    db.run(`
+      CREATE TABLE IF NOT EXISTS licenses (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        department TEXT NOT NULL,
+        supplier TEXT NOT NULL,
+        startDate TEXT NOT NULL,
+        renewalDate TEXT NOT NULL,
+        monthlyCost REAL NOT NULL,
+        paymentMethod TEXT NOT NULL,
+        serviceOwner TEXT NOT NULL,
+        serviceOwnerEmail TEXT,
+        status TEXT NOT NULL,
+        notes TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        creditCardDigits TEXT
+      )
+    `, (err) => {
+      if (err) {
+        console.error('Error creating licenses table:', err.message);
+        return;
+      }
+      
+      console.log('Licenses table initialized');
+      
+      // Once both tables are created, check for admin user
+      checkAndCreateAdminUser();
+    });
+  });
+}
+
+// Check if admin user exists, if not create one
+function checkAndCreateAdminUser() {
   db.get('SELECT * FROM users WHERE role = ?', ['admin'], (err, row) => {
     if (err) {
       console.error('Error checking for admin user:', err.message);
@@ -91,6 +110,8 @@ function initializeDatabase() {
           }
         }
       );
+    } else {
+      console.log('Admin user already exists');
     }
   });
 }
