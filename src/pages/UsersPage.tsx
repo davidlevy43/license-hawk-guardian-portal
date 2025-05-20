@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Navigate } from "react-router-dom";
@@ -101,12 +100,11 @@ const UsersPage: React.FC = () => {
         ));
         toast.success(`User ${formData.username} updated successfully`);
       } else {
-        // Add new user
+        // Add new user - remove createdAt as API will handle it
         const newUser = await UserAPI.create({
           username: formData.username,
           email: formData.email,
-          role: formData.role,
-          createdAt: new Date()
+          role: formData.role
         });
         
         setUsers([...users, newUser]);
