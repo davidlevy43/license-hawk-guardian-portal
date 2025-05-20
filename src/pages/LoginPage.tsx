@@ -15,11 +15,11 @@ import {
 } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 
 const formSchema = z.object({
-  username: z.string().min(1, "Username is required"),
+  email: z.string().email("Please enter a valid email address").min(1, "Email is required"),
   password: z.string().min(1, "Password is required"),
 });
 
@@ -32,14 +32,14 @@ const LoginPage: React.FC = () => {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      username: "",
+      email: "",
       password: "",
     },
   });
 
   const onSubmit = async (data: FormValues) => {
     try {
-      await login(data.username, data.password);
+      await login(data.email, data.password);
       // The redirect is handled in the login function
     } catch (error) {
       // Error is handled in the login function
@@ -69,12 +69,12 @@ const LoginPage: React.FC = () => {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="username"
+                  name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Username</FormLabel>
+                      <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter your username" {...field} />
+                        <Input type="email" placeholder="Enter your email" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

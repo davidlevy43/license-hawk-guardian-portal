@@ -7,7 +7,7 @@ import { toast } from "sonner";
 interface AuthContextType {
   currentUser: User | null;
   isLoading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -55,17 +55,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
-  const login = async (username: string, password: string) => {
+  const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
       // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Find user with matching credentials
-      const user = MOCK_USERS.find(u => u.username === username && u.password === password);
+      const user = MOCK_USERS.find(u => u.email === email && u.password === password);
       
       if (!user) {
-        throw new Error("Invalid username or password");
+        throw new Error("Invalid email or password");
       }
       
       // In a real app, we'd never store the password in the user object
