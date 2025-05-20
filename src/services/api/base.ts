@@ -9,7 +9,7 @@ const getApiUrl = () => {
     return customApiUrl;
   }
   // Default to localhost if no custom URL is set
-  return 'http://localhost:3001/api';
+  return 'http://localhost:3001';
 };
 
 // The base URL for your API server
@@ -22,21 +22,19 @@ export const updateApiUrl = async (newUrl: string) => {
     newUrl = `http://${newUrl}`;
   }
   
-  if (!newUrl.endsWith('/api')) {
-    newUrl = newUrl.endsWith('/') ? `${newUrl}api` : `${newUrl}/api`;
-  }
+  // Remove trailing slash if exists
+  newUrl = newUrl.endsWith('/') ? newUrl.slice(0, -1) : newUrl;
   
-  // Store the original URL (without /api) for display purposes
-  const displayUrl = newUrl.replace(/\/api$/, '');
+  // Store the URL for display purposes
   sessionStorage.setItem('api_server_url', newUrl);
   API_URL = newUrl;
   
-  console.log(`Testing connection to ${API_URL}/health`);
+  console.log(`Testing connection to ${API_URL}/api/health`);
   
   // Check if server is available
   const isAvailable = await checkServerAvailability();
   if (!isAvailable) {
-    throw new Error("Could not connect to the server at " + displayUrl);
+    throw new Error("Could not connect to the server at " + newUrl);
   }
   
   return true;
@@ -45,8 +43,8 @@ export const updateApiUrl = async (newUrl: string) => {
 // Check if server is running
 export async function checkServerAvailability() {
   try {
-    console.log(`Checking server availability at ${API_URL}/health`);
-    const response = await fetch(`${API_URL}/health`, {
+    console.log(`Checking server availability at ${API_URL}/api/health`);
+    const response = await fetch(`${API_URL}/api/health`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(5000) // Increase timeout to 5 seconds
@@ -71,9 +69,13 @@ export const forceRealApiMode = async () => {
 // Base fetchAPI function for making API requests
 export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   try {
-    console.log(`Making ${options.method || 'GET'} request to ${API_URL}${endpoint}`);
+    const fullUrl = endpoint.startsWith('/') 
+      ? `${API_URL}/api${endpoint}`
+      : `${API_URL}/api/${endpoint}`;
+      
+    console.log(`Making ${options.method || 'GET'} request to ${fullUrl}`);
     
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const response = await fetch(fullUrl, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -82,8 +84,15 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: `Request failed with status ${response.status}` }));
-      throw new Error(error.message || `Request failed with status ${response.status}`);
+      // Try to parse the error response
+      let errorMessage: string;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || `Request failed with status ${response.status}`;
+      } catch (e) {
+        errorMessage = `Request failed with status ${response.status}`;
+      }
+      throw new Error(errorMessage);
     }
 
     // For DELETE requests that return 204 No Content

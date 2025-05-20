@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { updateApiUrl } from "@/services/api";
+import { updateApiUrl, API_URL } from "@/services/api/base";
+import { HealthAPI } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
 
 // Get the server's IP address (to display as hint)
@@ -26,6 +27,21 @@ const SettingsPage: React.FC = () => {
   const [apiUrl, setApiUrl] = useState(() => sessionStorage.getItem('api_server_url') || `http://${getLocalIpAddress()}:3001`);
   const [isLoading, setIsLoading] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [serverStatus, setServerStatus] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    // Check current connection status when the page loads
+    const checkConnection = async () => {
+      try {
+        const isConnected = await HealthAPI.checkServer();
+        setServerStatus(isConnected);
+      } catch (error) {
+        setServerStatus(false);
+      }
+    };
+    
+    checkConnection();
+  }, []);
 
   const handleSaveApiUrl = async () => {
     setIsLoading(true);
@@ -34,11 +50,13 @@ const SettingsPage: React.FC = () => {
       // Try to connect to the new API URL
       await updateApiUrl(apiUrl);
       toast.success("Server connection successful! Settings saved.");
+      setServerStatus(true);
       
       // Refresh the page to apply new API settings
       setTimeout(() => window.location.href = "/", 1000);
     } catch (error: any) {
       setConnectionError(`Could not connect to the server at ${apiUrl}`);
+      setServerStatus(false);
       toast.error(`Connection failed: ${error.message}`);
     } finally {
       setIsLoading(false);
@@ -82,10 +100,21 @@ const SettingsPage: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {connectionError && (
+          {serverStatus === true && (
+            <Alert variant="default" className="bg-green-50 border-green-200 mb-4">
+              <AlertTitle className="text-green-700">Connected</AlertTitle>
+              <AlertDescription className="text-green-600">
+                Currently connected to {sessionStorage.getItem('api_server_url') || API_URL}
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {serverStatus === false && (
             <Alert variant="destructive" className="mb-4">
               <AlertTitle>Connection Error</AlertTitle>
-              <AlertDescription>{connectionError}</AlertDescription>
+              <AlertDescription>
+                {connectionError || "Not connected to any server. Please enter a valid server URL."}
+              </AlertDescription>
             </Alert>
           )}
 
