@@ -38,7 +38,7 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
 // Process license data before sending to API
 const prepareLicenseData = (license: Omit<License, 'id' | 'createdAt' | 'updatedAt'> | Partial<License>) => {
   // Create a copy to avoid modifying the original
-  const preparedLicense = { ...license };
+  const preparedLicense: any = { ...license };
   
   // Ensure dates are in ISO string format for the API
   if (preparedLicense.startDate instanceof Date) {
