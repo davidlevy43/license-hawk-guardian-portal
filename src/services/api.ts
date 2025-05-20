@@ -17,8 +17,13 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'An error occurred');
+      const error = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
+      throw new Error(error.message || `Request failed with status ${response.status}`);
+    }
+
+    // For DELETE requests that return 204 No Content
+    if (response.status === 204) {
+      return {} as T;
     }
 
     return await response.json();
@@ -50,8 +55,20 @@ export const LicenseAPI = {
 
 // User APIs
 export const UserAPI = {
-  getAll: () => fetchAPI<User[]>('/users'),
-  getById: (id: string) => fetchAPI<User>(`/users/${id}`),
+  getAll: async () => {
+    const users = await fetchAPI<User[]>('/users');
+    return users.map(user => ({
+      ...user,
+      createdAt: new Date(user.createdAt)
+    }));
+  },
+  getById: async (id: string) => {
+    const user = await fetchAPI<User>(`/users/${id}`);
+    return {
+      ...user,
+      createdAt: new Date(user.createdAt)
+    };
+  },
   create: (user: Omit<User, 'id' | 'createdAt'>) => 
     fetchAPI<User>('/users', {
       method: 'POST',

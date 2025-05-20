@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Navigate } from "react-router-dom";
@@ -30,6 +31,7 @@ const UsersPage: React.FC = () => {
   const { isAdmin, currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -40,17 +42,16 @@ const UsersPage: React.FC = () => {
     const loadUsers = async () => {
       try {
         setIsLoading(true);
+        setLoadError(null);
+        
+        console.log("Fetching users...");
         const apiUsers = await UserAPI.getAll();
+        console.log("Users fetched:", apiUsers);
         
-        // Convert date strings to Date objects if needed
-        const processedUsers = apiUsers.map(user => ({
-          ...user,
-          createdAt: user.createdAt instanceof Date ? user.createdAt : new Date(user.createdAt)
-        }));
-        
-        setUsers(processedUsers);
-      } catch (error) {
+        setUsers(apiUsers);
+      } catch (error: any) {
         console.error("Error loading users:", error);
+        setLoadError(error.message || "Failed to load users");
         toast.error("Failed to load users");
       } finally {
         setIsLoading(false);
@@ -100,7 +101,7 @@ const UsersPage: React.FC = () => {
         ));
         toast.success(`User ${formData.username} updated successfully`);
       } else {
-        // Add new user - remove createdAt as API will handle it
+        // Add new user
         const newUser = await UserAPI.create({
           username: formData.username,
           email: formData.email,
@@ -112,9 +113,9 @@ const UsersPage: React.FC = () => {
       }
       
       handleCloseForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving user:", error);
-      toast.error("Failed to save user");
+      toast.error(error.message || "Failed to save user");
     } finally {
       setIsLoading(false);
     }
@@ -139,19 +140,14 @@ const UsersPage: React.FC = () => {
         // Update state
         setUsers(users.filter(user => user.id !== selectedUser.id));
         toast.success(`User ${selectedUser.username} deleted successfully`);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error deleting user:", error);
-        toast.error("Failed to delete user");
+        toast.error(error.message || "Failed to delete user");
       } finally {
         setIsLoading(false);
       }
     }
     
-    setIsDeleteDialogOpen(false);
-    setSelectedUser(null);
-  };
-
-  const handleDeleteCancel = () => {
     setIsDeleteDialogOpen(false);
     setSelectedUser(null);
   };
@@ -165,9 +161,31 @@ const UsersPage: React.FC = () => {
     setSelectedUser(null);
   };
 
+  const handleDeleteCancel = () => {
+    setIsDeleteDialogOpen(false);
+    setSelectedUser(null);
+  };
+
   const handleResetPasswordCancel = () => {
     setIsResetPasswordDialogOpen(false);
     setSelectedUser(null);
+  };
+
+  const handleRefresh = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    
+    try {
+      const apiUsers = await UserAPI.getAll();
+      setUsers(apiUsers);
+      toast.success("Users refreshed successfully");
+    } catch (error: any) {
+      console.error("Error refreshing users:", error);
+      setLoadError(error.message || "Failed to refresh users");
+      toast.error("Failed to refresh users");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -179,14 +197,26 @@ const UsersPage: React.FC = () => {
             Manage user accounts and permissions
           </p>
         </div>
-        <Button onClick={() => handleOpenForm()} disabled={isLoading}>
-          <Plus className="mr-2 h-4 w-4" /> Add User
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleRefresh} variant="outline" disabled={isLoading}>
+            Refresh
+          </Button>
+          <Button onClick={() => handleOpenForm()} disabled={isLoading}>
+            <Plus className="mr-2 h-4 w-4" /> Add User
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
         <div className="flex justify-center py-8">
-          <p>Loading users...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      ) : loadError ? (
+        <div className="rounded-md bg-destructive/15 p-4 text-center">
+          <p className="text-destructive">{loadError}</p>
+          <Button onClick={handleRefresh} variant="outline" className="mt-2">
+            Try Again
+          </Button>
         </div>
       ) : (
         <UserTable 
