@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -138,10 +137,19 @@ const SettingsPage: React.FC = () => {
             <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
               <h3 className="font-medium text-blue-800">Server Not Running?</h3>
               <ol className="list-decimal ml-5 mt-2 text-sm text-blue-700 space-y-2">
-                <li>Make sure your API server is running with: <code className="bg-blue-100 px-1 py-0.5 rounded">node server/server.js</code></li>
+                <li>Make sure your API server is running with: <code className="bg-blue-100 px-1 py-0.5 rounded">cd server && node server.js</code></li>
                 <li>Check that the server is running on port 3001</li>
-                <li>Ensure your frontend is built with: <code className="bg-blue-100 px-1 py-0.5 rounded">npm run build</code> or <code className="bg-blue-100 px-1 py-0.5 rounded">yarn build</code></li>
+                <li><strong>Important:</strong> To build the frontend, run: <code className="bg-blue-100 px-1 py-0.5 rounded">cd /path/to/project/root && npm run build</code> or <code className="bg-blue-100 px-1 py-0.5 rounded">yarn build</code> from the <strong>main project directory (NOT from the server directory)</strong></li>
               </ol>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-md p-4 mb-4">
+              <h3 className="font-medium text-amber-800">Build Error?</h3>
+              <p className="text-sm text-amber-700 mt-2">If you're seeing a "Missing script: build" error, you might be in the wrong directory. The build command must be run from the main project directory, not from the server directory.</p>
+              <div className="mt-2 bg-amber-100 p-2 rounded-md text-sm font-mono">
+                <p>❌ Running from server directory: <span className="text-red-600">cd server && npm run build</span></p>
+                <p>✅ Correct way: <span className="text-green-600">cd .. && npm run build</span> (or go to the root project folder)</p>
+              </div>
             </div>
             
             <div className="space-y-2">
@@ -189,6 +197,7 @@ const SettingsPage: React.FC = () => {
                   <li>No firewall blocking the connection</li>
                   <li>Correct server IP or hostname</li>
                   <li>Server and client on same network (if applicable)</li>
+                  <li>Frontend is built from the main project directory (not server directory)</li>
                 </ul>
               </div>
             </div>
