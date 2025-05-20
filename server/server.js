@@ -1,10 +1,10 @@
-
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
+const fs = require('fs');
 
 // Initialize express app
 const app = express();
@@ -13,7 +13,16 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, '../dist')));
+
+// Check if dist directory exists before serving static files
+const distPath = path.join(__dirname, '../dist');
+if (fs.existsSync(distPath)) {
+  console.log('Serving static files from dist directory');
+  app.use(express.static(distPath));
+} else {
+  console.log('Warning: dist directory not found. Static files will not be served.');
+  console.log('To serve the frontend, build the React app using "npm run build" or "yarn build"');
+}
 
 // Initialize SQLite database
 const dbPath = path.join(__dirname, 'database.sqlite');
@@ -485,9 +494,23 @@ app.delete('/api/licenses/:id', (req, res) => {
   });
 });
 
-// Serve React frontend for any other routes
+// Only serve React frontend if dist directory exists
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'));
+  if (fs.existsSync(distPath)) {
+    res.sendFile(path.join(distPath, 'index.html'));
+  } else {
+    res.status(200).send(`
+      <html>
+        <head><title>License Manager API Server</title></head>
+        <body>
+          <h1>License Manager API Server is running</h1>
+          <p>The API server is running successfully, but the frontend files are not available.</p>
+          <p>API endpoints are available at: <code>http://[your-server-ip]:${PORT}/api/</code></p>
+          <p>To serve the frontend, build the React app using <code>npm run build</code> or <code>yarn build</code></p>
+        </body>
+      </html>
+    `);
+  }
 });
 
 // Start the server - Listen on all network interfaces instead of just localhost

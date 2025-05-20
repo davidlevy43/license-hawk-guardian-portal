@@ -14,6 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { updateApiUrl, API_URL } from "@/services/api/base";
 import { HealthAPI } from "@/services/api";
+import { useNavigate } from "react-router-dom";
 
 // Get the server's IP address (to display as hint)
 const getLocalIpAddress = () => {
@@ -22,6 +23,7 @@ const getLocalIpAddress = () => {
 };
 
 const SettingsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [apiUrl, setApiUrl] = useState(() => sessionStorage.getItem('api_server_url') || `http://${getLocalIpAddress()}:3001`);
   const [isLoading, setIsLoading] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -50,8 +52,8 @@ const SettingsPage: React.FC = () => {
       toast.success("Server connection successful! Settings saved.");
       setServerStatus(true);
       
-      // Redirect to login page instead of index/home page
-      setTimeout(() => window.location.href = "/login", 1000);
+      // Redirect to login page
+      setTimeout(() => navigate("/login"), 1000);
     } catch (error: any) {
       setConnectionError(`Could not connect to the server at ${apiUrl}`);
       setServerStatus(false);
