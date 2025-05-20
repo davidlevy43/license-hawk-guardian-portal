@@ -12,6 +12,7 @@ interface NotificationContextType {
   updateNotificationSettings: (settings: Partial<NotificationSettings>) => void;
   testEmailConnection: () => Promise<boolean>;
   sendAutomaticNotifications: () => void;
+  sendManualNotification: (licenseId: string, templateType: keyof NotificationSettings["emailTemplates"]) => boolean;
 }
 
 const NotificationContext = createContext<NotificationContextType | null>(null);
@@ -38,7 +39,7 @@ const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [emailSettings, setEmailSettings] = useState<EmailSettings>(DEFAULT_EMAIL_SETTINGS);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(DEFAULT_NOTIFICATION_SETTINGS);
-  const { licenses } = useLicenses();
+  const { licenses, getLicenseById } = useLicenses();
 
   useEffect(() => {
     // Load settings from localStorage if available
@@ -140,6 +141,17 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     });
   };
 
+  const sendManualNotification = (licenseId: string, templateType: keyof NotificationSettings["emailTemplates"]) => {
+    const license = getLicenseById(licenseId);
+    if (!license) {
+      toast.error("License not found");
+      return false;
+    }
+    
+    sendEmailNotification(license, templateType);
+    return true;
+  };
+
   const sendEmailNotification = (license: License, templateType: keyof NotificationSettings["emailTemplates"]) => {
     // In a real application, this would send an actual email using SMTP settings
     const template = notificationSettings.emailTemplates[templateType];
@@ -150,10 +162,35 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       .replace("{LICENSE_NAME}", license.name)
       .replace("{LICENSE_TYPE}", licenseType)
       .replace("{EXPIRY_DATE}", new Date(license.renewalDate).toLocaleDateString())
-      .replace("{CARD_LAST_4}", cardLastFour);
+      .replace("{CARD_LAST_4}", cardLastFour)
+      .replace("{DEPARTMENT}", license.department)
+      .replace("{SUPPLIER}", license.supplier)
+      .replace("{COST}", license.monthlyCost.toString())
+      .replace("{SERVICE_OWNER}", license.serviceOwner);
     
-    console.log(`Sending ${templateType} notification for ${license.name}:`, emailContent);
-    // In a production app, this would use the SMTP settings to send an actual email
+    // Get recipient's email (service owner email)
+    const recipientEmail = license.serviceOwnerEmail || "";
+    
+    if (!recipientEmail) {
+      console.warn(`No email address found for service owner of license "${license.name}"`);
+      toast.warning(`No email address available for service owner of "${license.name}"`);
+      return;
+    }
+    
+    // Check if SMTP settings are configured
+    if (!emailSettings.smtpServer || !emailSettings.username || !emailSettings.password || !emailSettings.senderEmail) {
+      console.warn("SMTP settings are not properly configured");
+      toast.warning("Email not sent: SMTP settings are incomplete");
+      return;
+    }
+    
+    console.log(`Sending ${templateType} notification to ${recipientEmail} for ${license.name}:`, emailContent);
+    
+    // In a real app, this would actually send the email
+    // This is where you would integrate with a real email sending service
+    
+    // Simulate successful sending
+    toast.success(`Notification sent to ${recipientEmail} for license "${license.name}"`);
   };
 
   return (
@@ -163,7 +200,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       updateEmailSettings, 
       updateNotificationSettings,
       testEmailConnection,
-      sendAutomaticNotifications
+      sendAutomaticNotifications,
+      sendManualNotification
     }}>
       {children}
     </NotificationContext.Provider>

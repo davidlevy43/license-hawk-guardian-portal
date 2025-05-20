@@ -19,7 +19,16 @@ const LicenseContext = createContext<LicenseContextType | null>(null);
 const generateMockLicenses = (): License[] => {
   const departments = ["IT", "Marketing", "Sales", "HR", "Finance"];
   const suppliers = ["Microsoft", "Adobe", "Oracle", "IBM", "Cisco", "VMware", "ServiceNow"];
-  const owners = ["John Smith", "Emily Johnson", "Michael Williams", "Sarah Brown", "David Jones"];
+  
+  // Updated with emails
+  const owners = [
+    { name: "John Smith", email: "john.smith@company.com" },
+    { name: "Emily Johnson", email: "emily.johnson@company.com" },
+    { name: "Michael Williams", email: "michael.williams@company.com" },
+    { name: "Sarah Brown", email: "sarah.brown@company.com" },
+    { name: "David Jones", email: "david.jones@company.com" }
+  ];
+  
   const licenseNames = [
     "Windows Server 2022", "Office 365", "Adobe Creative Cloud",
     "Oracle Database", "SQL Server", "VMware vSphere", "ServiceNow",
@@ -34,6 +43,7 @@ const generateMockLicenses = (): License[] => {
     renewalDate.setFullYear(renewalDate.getFullYear() + 1);
     
     const status = getStatusFromDate(renewalDate);
+    const randomOwnerIndex = Math.floor(Math.random() * owners.length);
     
     return {
       id: (i + 1).toString(),
@@ -45,11 +55,13 @@ const generateMockLicenses = (): License[] => {
       renewalDate,
       monthlyCost: Math.floor(Math.random() * 5000) + 100,
       paymentMethod: Object.values(PaymentMethod)[Math.floor(Math.random() * Object.values(PaymentMethod).length)],
-      serviceOwner: owners[Math.floor(Math.random() * owners.length)],
+      serviceOwner: owners[randomOwnerIndex].name,
+      serviceOwnerEmail: owners[randomOwnerIndex].email,
       status,
       notes: `License ${i + 1} notes go here`,
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      creditCardDigits: Math.floor(Math.random() * 10000).toString().padStart(4, '0')
     };
   });
 };

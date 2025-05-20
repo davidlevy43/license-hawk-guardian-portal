@@ -1,3 +1,4 @@
+
 export enum UserRole {
   ADMIN = "admin",
   USER = "user"
@@ -42,6 +43,7 @@ export interface License {
   monthlyCost: number;
   paymentMethod: PaymentMethod;
   serviceOwner: string;
+  serviceOwnerEmail: string; // Added email for the service owner
   status: LicenseStatus;
   notes: string;
   createdAt: Date;
