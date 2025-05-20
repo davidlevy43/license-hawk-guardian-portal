@@ -61,7 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // First check if the server is available
       const serverAvailable = await HealthAPI.checkServer();
       if (!serverAvailable) {
-        throw new Error("Server connection failed. Please check your server settings.");
+        throw new Error("Server connection failed. Please ensure the API server is running.");
       }
       
       // Get all users from the API - in a real app you would have a /login endpoint
@@ -75,11 +75,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error("Invalid email or password");
       }
 
-      // In a production environment, this would be a proper password verification
-      // against a securely hashed password stored in the database
-      // For now, we're still using a simpler verification for the demo
-      // but removing the "123" requirement
-      
       // Get the user's password from the database (in a real app, this would be hashed)
       const userFromDb = await fetchAPI<any>(`/users/${user.id}`);
       
@@ -95,14 +90,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast.success(`Welcome back, ${user.username}!`);
       navigate("/dashboard");
     } catch (error: any) {
-      // Provide more helpful error messages for different failure scenarios
-      if (error.message.includes("Failed to fetch") || error.message.includes("Server connection failed")) {
-        toast.error("Unable to connect to the server. Please check your server settings in the Settings page.");
-        // Navigate to settings page to help user fix the connection
-        navigate("/settings");
-      } else {
-        toast.error(error.message || "Login failed");
-      }
+      // Handle login errors
+      console.error("Login error:", error);
+      throw error; // Let the component handle displaying the error
     } finally {
       setIsLoading(false);
     }

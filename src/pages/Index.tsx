@@ -2,7 +2,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HealthAPI } from "@/services/api";
-import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -19,8 +18,8 @@ const Index: React.FC = () => {
         const serverAvailable = await HealthAPI.checkServer();
         
         if (!serverAvailable) {
-          const apiUrl = sessionStorage.getItem('api_server_url') || 'default server URL';
-          setServerError(`Unable to connect to server at ${apiUrl}. Please check your server settings.`);
+          const apiUrl = sessionStorage.getItem('api_server_url') || 'API server';
+          setServerError(`Unable to connect to the API server. The application requires a server running on port 3001.`);
           // We'll show an error message instead of automatically redirecting
         } else {
           // If we have a valid session token, go to dashboard, otherwise to login
@@ -29,8 +28,7 @@ const Index: React.FC = () => {
         }
       } catch (error) {
         console.error("Server check failed:", error);
-        const apiUrl = sessionStorage.getItem('api_server_url') || 'default server URL';
-        setServerError(`Unable to connect to server at ${apiUrl}. Please check your server settings.`);
+        setServerError(`Unable to connect to the API server. The application requires a server running on port 3001.`);
       } finally {
         setIsCheckingServer(false);
       }
@@ -47,11 +45,10 @@ const Index: React.FC = () => {
           <AlertDescription>{serverError}</AlertDescription>
         </Alert>
         <p className="text-muted-foreground mb-4 text-center max-w-md">
-          Make sure your server is running and accessible on the network. 
-          If you're accessing from another computer, use the server's IP address instead of localhost.
+          Make sure the API server is running on port 3001. The application cannot function without a connection to the API server.
         </p>
         <Button asChild>
-          <Link to="/settings">Configure Server Settings</Link>
+          <Link to="/login">Try Again</Link>
         </Button>
       </div>
     );

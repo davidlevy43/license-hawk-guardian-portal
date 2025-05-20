@@ -1,15 +1,17 @@
 
 // Base API utilities for making requests and managing server connections
 
-// Get the API server URL - will use localhost by default but can be changed
+// Get the API server URL - will now use current hostname by default
 const getApiUrl = () => {
   // Check if a custom server URL has been set in sessionStorage
   const customApiUrl = sessionStorage.getItem('api_server_url');
   if (customApiUrl) {
     return customApiUrl;
   }
-  // Default to localhost if no custom URL is set
-  return 'http://localhost:3001';
+  
+  // Use the current hostname with port 3001 for the API
+  const currentHost = window.location.hostname;
+  return `http://${currentHost}:3001`;
 };
 
 // The base URL for your API server
