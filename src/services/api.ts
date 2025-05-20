@@ -8,6 +8,8 @@ const API_URL = 'http://localhost:3001/api';
 // Generic request handler with error management
 async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   try {
+    console.log(`Making ${options.method || 'GET'} request to ${API_URL}${endpoint}`);
+    
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
       headers: {
@@ -17,7 +19,7 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
+      const error = await response.json().catch(() => ({ message: `Request failed with status ${response.status}` }));
       throw new Error(error.message || `Request failed with status ${response.status}`);
     }
 
@@ -33,52 +35,144 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
   }
 }
 
+// Process license data before sending to API
+const prepareLicenseData = (license: Omit<License, 'id' | 'createdAt' | 'updatedAt'> | Partial<License>) => {
+  // Create a copy to avoid modifying the original
+  const preparedLicense = { ...license };
+  
+  // Ensure dates are in ISO string format for the API
+  if (preparedLicense.startDate instanceof Date) {
+    preparedLicense.startDate = preparedLicense.startDate.toISOString();
+  }
+  
+  if (preparedLicense.renewalDate instanceof Date) {
+    preparedLicense.renewalDate = preparedLicense.renewalDate.toISOString();
+  }
+  
+  return preparedLicense;
+};
+
+// Process license from API to client
+const processLicense = (license: any): License => {
+  return {
+    ...license,
+    startDate: new Date(license.startDate),
+    renewalDate: new Date(license.renewalDate),
+    createdAt: new Date(license.createdAt),
+    updatedAt: new Date(license.updatedAt)
+  };
+};
+
 // License APIs
 export const LicenseAPI = {
-  getAll: () => fetchAPI<License[]>('/licenses'),
-  getById: (id: string) => fetchAPI<License>(`/licenses/${id}`),
-  create: (license: Omit<License, 'id' | 'createdAt' | 'updatedAt'>) => 
-    fetchAPI<License>('/licenses', {
-      method: 'POST',
-      body: JSON.stringify(license),
-    }),
-  update: (id: string, license: Partial<License>) => 
-    fetchAPI<License>(`/licenses/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(license),
-    }),
-  delete: (id: string) => 
-    fetchAPI(`/licenses/${id}`, {
-      method: 'DELETE',
-    }),
+  getAll: async () => {
+    try {
+      console.log('Fetching all licenses');
+      const licenses = await fetchAPI<License[]>('/licenses');
+      return licenses.map(processLicense);
+    } catch (error) {
+      console.error('Failed to fetch licenses:', error);
+      throw error;
+    }
+  },
+  
+  getById: async (id: string) => {
+    try {
+      const license = await fetchAPI<License>(`/licenses/${id}`);
+      return processLicense(license);
+    } catch (error) {
+      console.error(`Failed to fetch license ${id}:`, error);
+      throw error;
+    }
+  },
+  
+  create: async (license: Omit<License, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      console.log('Creating license:', license);
+      const preparedData = prepareLicenseData(license);
+      console.log('Prepared license data:', preparedData);
+      
+      const newLicense = await fetchAPI<License>('/licenses', {
+        method: 'POST',
+        body: JSON.stringify(preparedData),
+      });
+      
+      return processLicense(newLicense);
+    } catch (error) {
+      console.error('Failed to create license:', error);
+      throw error;
+    }
+  },
+  
+  update: async (id: string, license: Partial<License>) => {
+    try {
+      const preparedData = prepareLicenseData(license);
+      const updatedLicense = await fetchAPI<License>(`/licenses/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(preparedData),
+      });
+      
+      return processLicense(updatedLicense);
+    } catch (error) {
+      console.error(`Failed to update license ${id}:`, error);
+      throw error;
+    }
+  },
+  
+  delete: async (id: string) => {
+    try {
+      await fetchAPI(`/licenses/${id}`, {
+        method: 'DELETE',
+      });
+      return true;
+    } catch (error) {
+      console.error(`Failed to delete license ${id}:`, error);
+      throw error;
+    }
+  },
 };
 
 // User APIs
 export const UserAPI = {
   getAll: async () => {
-    const users = await fetchAPI<User[]>('/users');
-    return users.map(user => ({
-      ...user,
-      createdAt: new Date(user.createdAt)
-    }));
+    try {
+      console.log('Fetching all users');
+      const users = await fetchAPI<User[]>('/users');
+      return users.map(user => ({
+        ...user,
+        createdAt: new Date(user.createdAt)
+      }));
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+      throw error;
+    }
   },
+  
   getById: async (id: string) => {
-    const user = await fetchAPI<User>(`/users/${id}`);
-    return {
-      ...user,
-      createdAt: new Date(user.createdAt)
-    };
+    try {
+      const user = await fetchAPI<User>(`/users/${id}`);
+      return {
+        ...user,
+        createdAt: new Date(user.createdAt)
+      };
+    } catch (error) {
+      console.error(`Failed to fetch user ${id}:`, error);
+      throw error;
+    }
   },
+  
   create: (user: Omit<User, 'id' | 'createdAt'>) => 
     fetchAPI<User>('/users', {
       method: 'POST',
       body: JSON.stringify(user),
     }),
+    
   update: (id: string, user: Partial<User>) => 
     fetchAPI<User>(`/users/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(user),
     }),
+    
   delete: (id: string) => 
     fetchAPI(`/users/${id}`, {
       method: 'DELETE',

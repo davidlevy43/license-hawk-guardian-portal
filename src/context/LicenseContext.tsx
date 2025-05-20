@@ -8,10 +8,11 @@ import { LicenseAPI } from "@/services/api";
 interface LicenseContextType {
   licenses: License[];
   isLoading: boolean;
-  addLicense: (license: Omit<License, "id" | "createdAt" | "updatedAt">) => void;
-  updateLicense: (id: string, license: Partial<License>) => void;
-  deleteLicense: (id: string) => void;
+  addLicense: (license: Omit<License, "id" | "createdAt" | "updatedAt">) => Promise<void>;
+  updateLicense: (id: string, license: Partial<License>) => Promise<void>;
+  deleteLicense: (id: string) => Promise<void>;
   getLicenseById: (id: string) => License | undefined;
+  refreshLicenses: () => Promise<void>;
 }
 
 const LicenseContext = createContext<LicenseContextType | null>(null);
@@ -34,48 +35,48 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [licenses, setLicenses] = useState<License[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  useEffect(() => {
-    // Load licenses from API
-    const loadLicenses = async () => {
-      try {
-        setIsLoading(true);
-        
-        // Get all licenses from the API
-        const apiLicenses = await LicenseAPI.getAll();
-        
-        // Convert date strings to Date objects if needed
-        const processedLicenses = apiLicenses.map(license => ({
-          ...license,
-          startDate: license.startDate instanceof Date ? license.startDate : new Date(license.startDate),
-          renewalDate: license.renewalDate instanceof Date ? license.renewalDate : new Date(license.renewalDate),
-          createdAt: license.createdAt instanceof Date ? license.createdAt : new Date(license.createdAt),
-          updatedAt: license.updatedAt instanceof Date ? license.updatedAt : new Date(license.updatedAt)
-        }));
-        
-        setLicenses(processedLicenses);
-      } catch (error) {
-        console.error("Error loading licenses:", error);
-        toast.error("Failed to load licenses");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const refreshLicenses = async () => {
+    try {
+      setIsLoading(true);
+      console.log("Refreshing licenses...");
+      
+      // Get all licenses from the API
+      const apiLicenses = await LicenseAPI.getAll();
+      console.log("Licenses fetched:", apiLicenses);
+      
+      setLicenses(apiLicenses);
+    } catch (error) {
+      console.error("Error loading licenses:", error);
+      toast.error("Failed to load licenses");
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    loadLicenses();
+  useEffect(() => {
+    // Load licenses from API on component mount
+    refreshLicenses().catch(err => {
+      console.error("Initial license load failed:", err);
+    });
   }, []);
 
   const addLicense = async (licenseData: Omit<License, "id" | "createdAt" | "updatedAt">) => {
     try {
       setIsLoading(true);
+      console.log("Adding license:", licenseData);
+      
       // Add to API
       const newLicense = await LicenseAPI.create(licenseData);
+      console.log("License created:", newLicense);
       
       // Update state
       setLicenses(prev => [...prev, newLicense]);
       toast.success(`License "${newLicense.name}" has been added`);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding license:", error);
-      toast.error("Failed to add license");
+      toast.error(`Failed to add license: ${error.message}`);
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -84,6 +85,8 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const updateLicense = async (id: string, licenseData: Partial<License>) => {
     try {
       setIsLoading(true);
+      console.log("Updating license:", id, licenseData);
+      
       // Update in API
       const updatedLicense = await LicenseAPI.update(id, licenseData);
       
@@ -95,10 +98,11 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return license;
       }));
       
-      toast.success("License updated successfully");
-    } catch (error) {
+      toast.success(`License "${updatedLicense.name}" updated successfully`);
+    } catch (error: any) {
       console.error("Error updating license:", error);
-      toast.error("Failed to update license");
+      toast.error(`Failed to update license: ${error.message}`);
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -118,9 +122,10 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (licenseToDelete) {
         toast.success(`License "${licenseToDelete.name}" has been deleted`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting license:", error);
-      toast.error("Failed to delete license");
+      toast.error(`Failed to delete license: ${error.message}`);
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -137,7 +142,8 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
       addLicense, 
       updateLicense, 
       deleteLicense,
-      getLicenseById
+      getLicenseById,
+      refreshLicenses
     }}>
       {children}
     </LicenseContext.Provider>
