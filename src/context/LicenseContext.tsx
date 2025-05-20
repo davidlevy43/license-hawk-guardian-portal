@@ -85,16 +85,37 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // Simulate API call
+    // Load licenses from localStorage or generate mock data
     const loadLicenses = async () => {
       try {
-        // In a real app, this would be an API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const mockLicenses = generateMockLicenses();
-        setLicenses(mockLicenses);
+        setIsLoading(true);
+        
+        // Check localStorage first
+        const savedLicenses = localStorage.getItem('appLicenses');
+        
+        if (savedLicenses) {
+          // Parse the saved licenses and convert date strings back to Date objects
+          const parsedLicenses = JSON.parse(savedLicenses, (key, value) => {
+            if (key === 'startDate' || key === 'renewalDate' || key === 'createdAt' || key === 'updatedAt') {
+              return new Date(value);
+            }
+            return value;
+          });
+          setLicenses(parsedLicenses);
+        } else {
+          // If no saved licenses, generate mock data
+          const mockLicenses = generateMockLicenses();
+          setLicenses(mockLicenses);
+          // Save the mock licenses to localStorage
+          localStorage.setItem('appLicenses', JSON.stringify(mockLicenses));
+        }
       } catch (error) {
         console.error("Error loading licenses:", error);
         toast.error("Failed to load licenses");
+        
+        // Fallback to mock data if there's an error
+        const mockLicenses = generateMockLicenses();
+        setLicenses(mockLicenses);
       } finally {
         setIsLoading(false);
       }
@@ -102,6 +123,13 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     loadLicenses();
   }, []);
+
+  // Save licenses to localStorage whenever they change
+  useEffect(() => {
+    if (licenses.length > 0 && !isLoading) {
+      localStorage.setItem('appLicenses', JSON.stringify(licenses));
+    }
+  }, [licenses, isLoading]);
 
   const addLicense = (licenseData: Omit<License, "id" | "createdAt" | "updatedAt">) => {
     const newLicense: License = {

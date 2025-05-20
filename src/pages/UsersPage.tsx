@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Navigate } from "react-router-dom";
 import { User, UserRole } from "@/types";
@@ -60,11 +60,40 @@ const MOCK_USERS: User[] = [
 
 const UsersPage: React.FC = () => {
   const { isAdmin, currentUser } = useAuth();
-  const [users, setUsers] = useState<User[]>(MOCK_USERS);
+  const [users, setUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
+
+  // Load users from localStorage or use mock data
+  useEffect(() => {
+    const savedUsers = localStorage.getItem('appUsers');
+    if (savedUsers) {
+      try {
+        // Parse the saved users and convert date strings back to Date objects
+        const parsedUsers = JSON.parse(savedUsers, (key, value) => {
+          if (key === 'createdAt') {
+            return new Date(value);
+          }
+          return value;
+        });
+        setUsers(parsedUsers);
+      } catch (error) {
+        console.error('Error parsing saved users:', error);
+        setUsers(MOCK_USERS);
+      }
+    } else {
+      setUsers(MOCK_USERS);
+    }
+  }, []);
+
+  // Save users to localStorage whenever they change
+  useEffect(() => {
+    if (users.length > 0) {
+      localStorage.setItem('appUsers', JSON.stringify(users));
+    }
+  }, [users]);
 
   // Redirect non-admin users
   if (!isAdmin) {
