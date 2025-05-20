@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,8 +17,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { toast } from "sonner";
-import { AlertCircle, Settings } from "lucide-react";
+import { AlertCircle, Settings, Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { HealthAPI } from "@/services/api";
 
 const formSchema = z.object({
   email: z.string().email("Please enter a valid email address").min(1, "Email is required"),
@@ -31,6 +32,7 @@ const LoginPage: React.FC = () => {
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
   const [showServerAlert, setShowServerAlert] = useState(false);
+  const [showHelpTip, setShowHelpTip] = useState(false);
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -40,6 +42,20 @@ const LoginPage: React.FC = () => {
     },
   });
 
+  useEffect(() => {
+    // Check server connection on component mount
+    const checkServerConnection = async () => {
+      try {
+        const isAvailable = await HealthAPI.checkServer();
+        setShowServerAlert(!isAvailable);
+      } catch (error) {
+        setShowServerAlert(true);
+      }
+    };
+    
+    checkServerConnection();
+  }, []);
+
   const onSubmit = async (data: FormValues) => {
     try {
       await login(data.email, data.password);
@@ -47,6 +63,7 @@ const LoginPage: React.FC = () => {
     } catch (error) {
       // If there's an error, we'll show the server alert
       setShowServerAlert(true);
+      setShowHelpTip(true);
     }
   };
 
@@ -70,6 +87,15 @@ const LoginPage: React.FC = () => {
                 server settings
               </Link>
               .
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {showHelpTip && (
+          <Alert variant="default" className="mb-4">
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              For demo accounts, passwords must contain "123". For example: user123, admin123
             </AlertDescription>
           </Alert>
         )}

@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { User, UserRole } from "@/types";
 import { toast } from "sonner";
-import { fetchAPI, HealthAPI } from "@/services/api";
+import { fetchAPI, HealthAPI, UserAPI } from "@/services/api";
 
 interface AuthContextType {
   currentUser: User | null;
@@ -65,14 +65,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       // Get all users from the API - in a real app you would have a /login endpoint
-      const users = await fetchAPI<User[]>('/users');
+      const users = await UserAPI.getAll();
       
       // Find user with matching credentials
       const user = users.find(u => u.email === email);
       
       // In a real-world app, password verification would happen on the server
       // For this demo, we're simulating basic authentication
-      if (!user || !validatePassword(email, password)) {
+      if (!user) {
+        throw new Error("Invalid email or password");
+      }
+
+      // Validate password - in a real app this would be done securely on the server
+      const isPasswordValid = validatePassword(email, password);
+      if (!isPasswordValid) {
         throw new Error("Invalid email or password");
       }
       
@@ -102,11 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // For the demo, we'll use basic validation
     // In a real app, this would be handled securely on the server
     
-    // Special case for the two demo accounts
-    if (email === "admin@example.com" && password === "admin123") return true;
-    if (email === "user@example.com" && password === "user123") return true;
-    
-    // For any other user, check if password contains "123" for this demo
+    // For any user, check if password contains "123" for this demo
     // In production, we'd compare with a properly hashed password from the DB
     return password.includes("123");
   };
