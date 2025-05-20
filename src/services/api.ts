@@ -18,16 +18,26 @@ let API_URL = getApiUrl();
 
 // Function to update the API URL
 export const updateApiUrl = async (newUrl: string) => {
+  // Ensure URL has correct format
+  if (!newUrl.includes('://')) {
+    newUrl = `http://${newUrl}`;
+  }
+  
   if (!newUrl.endsWith('/api')) {
     newUrl = newUrl.endsWith('/') ? `${newUrl}api` : `${newUrl}/api`;
   }
+  
+  // Store the original URL (without /api) for display purposes
+  const displayUrl = newUrl.replace(/\/api$/, '');
   sessionStorage.setItem('api_server_url', newUrl);
   API_URL = newUrl;
+  
+  console.log(`Testing connection to ${API_URL}/health`);
   
   // Check if server is available
   const isAvailable = await checkServerAvailability();
   if (!isAvailable) {
-    throw new Error("Could not connect to the server at " + newUrl);
+    throw new Error("Could not connect to the server at " + displayUrl);
   }
   
   return true;
@@ -50,7 +60,7 @@ async function checkServerAvailability() {
     const response = await fetch(`${API_URL}/health`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(3000)
+      signal: AbortSignal.timeout(5000) // Increase timeout to 5 seconds
     });
     return response.ok;
   } catch (error) {

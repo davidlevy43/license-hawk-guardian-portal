@@ -10,6 +10,7 @@ import {
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { updateApiUrl } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
@@ -24,9 +25,11 @@ const SettingsPage: React.FC = () => {
   const { isAdmin } = useAuth();
   const [apiUrl, setApiUrl] = useState(() => sessionStorage.getItem('api_server_url') || `http://${getLocalIpAddress()}:3001`);
   const [isLoading, setIsLoading] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   const handleSaveApiUrl = async () => {
     setIsLoading(true);
+    setConnectionError(null);
     try {
       // Try to connect to the new API URL
       await updateApiUrl(apiUrl);
@@ -35,9 +38,30 @@ const SettingsPage: React.FC = () => {
       // Refresh the page to apply new API settings
       setTimeout(() => window.location.href = "/", 1000);
     } catch (error: any) {
-      toast.error(`Failed to connect: ${error.message}`);
+      setConnectionError(`Could not connect to the server at ${apiUrl}`);
+      toast.error(`Connection failed: ${error.message}`);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Fix URL if user entered incorrect format
+  const handleFixUrl = () => {
+    // Extract hostname/IP from the current URL
+    try {
+      const url = new URL(apiUrl);
+      // Ensure it has the correct format with protocol and port
+      const fixedUrl = `http://${url.hostname}:3001`;
+      setApiUrl(fixedUrl);
+      toast.info("URL format corrected. Try connecting now.");
+    } catch (e) {
+      // If the URL is not valid, try to extract just the hostname part
+      const hostnameMatch = apiUrl.match(/([^\/:\s]+)/);
+      if (hostnameMatch && hostnameMatch[1]) {
+        const hostname = hostnameMatch[1];
+        setApiUrl(`http://${hostname}:3001`);
+        toast.info("URL format corrected. Try connecting now.");
+      }
     }
   };
 
@@ -58,6 +82,13 @@ const SettingsPage: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {connectionError && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTitle>Connection Error</AlertTitle>
+              <AlertDescription>{connectionError}</AlertDescription>
+            </Alert>
+          )}
+
           <div className="space-y-1">
             <label className="text-sm font-medium" htmlFor="apiUrl">
               Server URL
@@ -80,12 +111,26 @@ const SettingsPage: React.FC = () => {
                 The server port (3001) must match the port where your API server is running.
                 This is separate from the web application port (which might be 8080 or another port).
               </p>
+              <div className="mt-2 p-2 bg-amber-100 rounded border border-amber-300">
+                <p className="text-xs font-medium text-amber-800">
+                  Troubleshooting:
+                </p>
+                <ul className="text-xs text-amber-700 list-disc pl-4 mt-1">
+                  <li>If you entered a server name (like "iltela21"), make sure it's in the format: http://iltela21:3001</li>
+                  <li>The port number (3001) must be included and match your server configuration</li>
+                  <li>Make sure your server is running and accessible from this device</li>
+                  <li>Check network firewall settings if you can't connect to the server</li>
+                </ul>
+              </div>
             </div>
           </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex flex-wrap gap-2">
           <Button onClick={handleSaveApiUrl} disabled={isLoading}>
             {isLoading ? "Connecting..." : "Save and Connect"}
+          </Button>
+          <Button variant="outline" onClick={handleFixUrl} type="button">
+            Fix URL Format
           </Button>
         </CardFooter>
       </Card>
