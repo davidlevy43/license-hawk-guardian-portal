@@ -16,6 +16,23 @@ if (-not (Test-Path $NSSMPath)) {
     exit 1
 }
 
+# Check for the dist folder
+$ProjectRoot = Split-Path -Path $WorkingDirectory -Parent
+$DistPath = Join-Path -Path $ProjectRoot -ChildPath "dist"
+
+if (-not (Test-Path $DistPath)) {
+    Write-Host "WARNING: The dist folder was not found at $DistPath" -ForegroundColor Yellow
+    Write-Host "You need to build the frontend application before starting the service." -ForegroundColor Yellow
+    Write-Host "To build the frontend, navigate to the project root and run:" -ForegroundColor Cyan
+    Write-Host "    npm install" -ForegroundColor Cyan
+    Write-Host "    npm run build" -ForegroundColor Cyan
+    
+    $continue = Read-Host "Do you want to continue installing the service anyway? (y/n)"
+    if ($continue -ne "y") {
+        exit 1
+    }
+}
+
 # Check if the service already exists
 $ServiceExists = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 
@@ -60,21 +77,24 @@ if (-not $IPAddress) {
 Write-Host "Starting $ServiceName..."
 try {
     Start-Service -Name $ServiceName -ErrorAction Stop
-    Write-Host "License Manager service has been installed and started successfully."
+    Write-Host "License Manager service has been installed and started successfully." -ForegroundColor Green
 } catch {
-    Write-Host "WARNING: Failed to start the service automatically. You can try to start it manually from Services."
-    Write-Host "Error details: $_"
+    Write-Host "WARNING: Failed to start the service automatically." -ForegroundColor Red
+    Write-Host "You can try to start it manually from Services." -ForegroundColor Yellow
+    Write-Host "Error details: $_" -ForegroundColor Red
 }
 
-Write-Host "The application should be accessible at: http://$IPAddress`:3001"
-Write-Host "If the service failed to start, check the logs in:"
+Write-Host ""
+Write-Host "The application should be accessible at: http://$IPAddress`:3001" -ForegroundColor Cyan
+Write-Host "If the service failed to start, check the logs in:" -ForegroundColor Cyan
 Write-Host "  - $WorkingDirectory\service-output.log"
 Write-Host "  - $WorkingDirectory\service-error.log"
 
 # Add helpful tips
 Write-Host ""
-Write-Host "Troubleshooting Tips:"
+Write-Host "Troubleshooting Tips:" -ForegroundColor Yellow
 Write-Host "1. Make sure Node.js is installed and in the system PATH"
 Write-Host "2. Check that all dependencies are installed (run 'npm install' in both root and server folders)"
-Write-Host "3. Verify that port 3001 is not being used by another application"
-Write-Host "4. Ensure the Windows Firewall allows connections to port 3001"
+Write-Host "3. Make sure to build the frontend before starting the service (run 'npm run build' in the project root)"
+Write-Host "4. Verify that port 3001 is not being used by another application"
+Write-Host "5. Ensure the Windows Firewall allows connections to port 3001"
