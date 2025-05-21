@@ -95,7 +95,8 @@ export const forceRealApiMode = async () => {
 // Base fetchAPI function for making API requests
 export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   try {
-    const fullUrl = endpoint.startsWith('/') 
+    // Fix the URL construction to prevent double "/api" in the path
+    const fullUrl = endpoint.startsWith('/')
       ? `${API_URL}/api${endpoint}`
       : `${API_URL}/api/${endpoint}`;
       

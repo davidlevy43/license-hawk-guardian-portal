@@ -5,8 +5,11 @@ import { API_URL } from './base';
 export const HealthAPI = {
   checkServer: async () => {
     try {
-      console.log(`Checking server at ${API_URL}/api/health`);
-      const response = await fetch(`${API_URL}/api/health`, {
+      // Fix potential double "/api" in URL path
+      const healthEndpoint = `${API_URL}/api/health`;
+      console.log(`Checking server at ${healthEndpoint}`);
+      
+      const response = await fetch(healthEndpoint, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         signal: AbortSignal.timeout(8000) // Increase timeout to 8 seconds
