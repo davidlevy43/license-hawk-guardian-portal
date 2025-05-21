@@ -3,7 +3,8 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { User, UserRole } from "@/types";
 import { toast } from "sonner";
-import { fetchAPI, HealthAPI } from "@/services/api";
+import { fetchAPI } from "@/services/api";
+import { API_URL } from "@/services/api/base";
 
 interface AuthContextType {
   currentUser: User | null;
@@ -58,18 +59,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // First check if the server is available
-      const serverAvailable = await HealthAPI.checkServer();
-      if (!serverAvailable) {
-        throw new Error("Server connection failed. Please ensure the API server is running.");
-      }
-      
-      // First try to get the admin user directly instead of fetching all users
       console.log("Attempting login with email:", email);
       
       // In a production app, we would use a dedicated login endpoint.
       // For this app, we'll need to first get the user by email
-      const response = await fetch(`${fetchAPI.API_URL}/api/users`, {
+      const response = await fetch(`${API_URL}/api/users`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -87,7 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       // Get the user's full details including password
-      const userDetailsResponse = await fetch(`${fetchAPI.API_URL}/api/users/${user.id}`, {
+      const userDetailsResponse = await fetch(`${API_URL}/api/users/${user.id}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
