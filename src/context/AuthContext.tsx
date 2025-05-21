@@ -61,6 +61,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log("Attempting login with email:", email);
       
+      // For Lovable preview environment, we'll use a simpler approach
+      if (window.location.hostname.includes('lovableproject.com')) {
+        console.log("Using simplified login for preview environment");
+        
+        // Only accept our demo credentials
+        if ((email.toLowerCase() === "admin@example.com" || email.toLowerCase() === "david@rotem.com") 
+            && password === "admin123") {
+          
+          const userId = email.toLowerCase() === "admin@example.com" ? "admin-id" : "david-id";
+          const username = email.toLowerCase() === "admin@example.com" ? "admin" : "david";
+          
+          const mockUser = {
+            id: userId,
+            username: username,
+            email: email.toLowerCase(),
+            role: UserRole.ADMIN,
+            createdAt: new Date()
+          };
+          
+          // Store authentication info in sessionStorage
+          sessionStorage.setItem("authToken", "secure-token");
+          sessionStorage.setItem("userId", userId);
+          
+          setCurrentUser(mockUser);
+          toast.success(`Welcome to the preview environment, ${username}!`);
+          navigate("/dashboard");
+          setIsLoading(false);
+          return;
+        } else {
+          throw new Error("Invalid email or password. In the preview environment, use admin@example.com or david@rotem.com with password admin123");
+        }
+      }
+      
       try {
         // First test if the server is available
         const healthResponse = await fetch(`${API_URL}/api/health`, {

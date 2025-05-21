@@ -10,6 +10,13 @@ const getApiUrl = () => {
     return customApiUrl;
   }
   
+  // In Lovable preview environment, we need to use the same origin
+  if (window.location.hostname.includes('lovableproject.com')) {
+    const fallbackUrl = window.location.origin;
+    console.log("Using fallback URL for Lovable environment:", fallbackUrl);
+    return fallbackUrl;
+  }
+  
   // Default to current hostname with port 3001
   // This works better with local network configurations
   const currentHost = window.location.hostname;
@@ -60,11 +67,13 @@ export const updateApiUrl = async (newUrl: string) => {
 // Check if server is running - more robust with longer timeout
 export async function checkServerAvailability() {
   try {
-    console.log(`Checking server availability at ${API_URL}/health`);
-    const response = await fetch(`${API_URL}/health`, {
+    const healthEndpoint = `${API_URL}/health`;
+    console.log(`Checking server availability at ${healthEndpoint}`);
+    
+    const response = await fetch(healthEndpoint, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(10000) // Increase timeout to 10 seconds for slower networks
+      signal: AbortSignal.timeout(10000) // 10 second timeout for slower networks
     });
     
     console.log("Server response status:", response.status);
@@ -100,6 +109,12 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
     }
       
     console.log(`Making ${options.method || 'GET'} request to ${fullUrl}`);
+    
+    // For Lovable preview environment, we need to use mock data
+    if (window.location.hostname.includes('lovableproject.com')) {
+      console.log("Using mock data in preview environment");
+      return getMockData(endpoint) as T;
+    }
     
     const response = await fetch(fullUrl, {
       ...options,
@@ -143,4 +158,49 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
     console.error('API Error:', error);
     throw error;
   }
+}
+
+// For Lovable preview environment, we need to use mock data
+function getMockData(endpoint: string) {
+  // Default admin user for login
+  const defaultAdmin = {
+    id: 'admin-id',
+    username: 'admin',
+    email: 'admin@example.com',
+    role: 'admin',
+    createdAt: new Date().toISOString()
+  };
+  
+  // Default second admin user
+  const secondAdmin = {
+    id: 'david-id',
+    username: 'david',
+    email: 'david@rotem.com',
+    role: 'admin',
+    createdAt: new Date().toISOString()
+  };
+
+  // Simple mock data for various endpoints
+  if (endpoint.includes('/users')) {
+    if (endpoint === '/users') {
+      return [defaultAdmin, secondAdmin];
+    }
+    
+    if (endpoint.includes('admin-id')) {
+      return defaultAdmin;
+    }
+    
+    if (endpoint.includes('david-id')) {
+      return secondAdmin;
+    }
+    
+    return defaultAdmin;
+  }
+  
+  if (endpoint.includes('/licenses')) {
+    return [];
+  }
+  
+  // Default mock data
+  return { status: 'ok', message: 'Mock data response' };
 }

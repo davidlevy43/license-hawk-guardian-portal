@@ -5,6 +5,12 @@ import { API_URL } from './base';
 export const HealthAPI = {
   checkServer: async () => {
     try {
+      // For Lovable preview environment, return true
+      if (window.location.hostname.includes('lovableproject.com')) {
+        console.log("Using mock health check for preview environment");
+        return true;
+      }
+      
       // Ensure we don't have double "/api" in URL path
       const healthEndpoint = `${API_URL}/health`;
       console.log(`Checking server health at ${healthEndpoint}`);
