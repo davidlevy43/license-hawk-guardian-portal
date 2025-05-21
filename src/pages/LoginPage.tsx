@@ -29,6 +29,10 @@ type FormValues = z.infer<typeof formSchema>;
 const LoginPage: React.FC = () => {
   const { login, isLoading } = useAuth();
   const [apiError, setApiError] = useState<string | null>(null);
+  const [demoCredentials] = useState({
+    email: "admin@example.com",
+    password: "admin123"
+  });
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -50,6 +54,11 @@ const LoginPage: React.FC = () => {
         setApiError(error.message || "Login failed");
       }
     }
+  };
+
+  const fillDemoCredentials = () => {
+    form.setValue("email", demoCredentials.email);
+    form.setValue("password", demoCredentials.password);
   };
 
   return (
@@ -126,6 +135,16 @@ const LoginPage: React.FC = () => {
                     "Sign In"
                   )}
                 </Button>
+                <div className="text-center mt-4">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={fillDemoCredentials} 
+                    className="text-xs w-full"
+                  >
+                    Use Demo Credentials
+                  </Button>
+                </div>
               </form>
             </Form>
           </CardContent>

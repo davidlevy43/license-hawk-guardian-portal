@@ -63,7 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       try {
         // First test if the server is available
-        const healthResponse = await fetch(`${API_URL}/health`, {
+        const healthResponse = await fetch(`${API_URL}/api/health`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
           signal: AbortSignal.timeout(5000) // 5 second timeout
@@ -89,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       const users = await response.json();
-      const user = users.find((u: any) => u.email === email);
+      const user = users.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
       
       if (!user) {
         console.error("No user found with email:", email);
