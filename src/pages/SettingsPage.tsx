@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,9 +13,10 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { updateApiUrl, API_URL } from "@/services/api/base";
-import { HealthAPI } from "@/services/api";
+import { HealthAPI, UserAPI } from "@/services/api";
 import { useNavigate } from "react-router-dom";
 import { Label } from "@/components/ui/label";
+import { UserRole } from "@/types";
 
 // Get the server's IP address (to display as hint)
 const getLocalIpAddress = () => {
@@ -28,6 +30,13 @@ const SettingsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [serverStatus, setServerStatus] = useState<boolean | null>(null);
+  
+  // Admin user creation state
+  const [adminEmail, setAdminEmail] = useState('admin@example.com');
+  const [adminUsername, setAdminUsername] = useState('Admin');
+  const [adminPassword, setAdminPassword] = useState('admin123');
+  const [creatingAdmin, setCreatingAdmin] = useState(false);
+  const [adminCreated, setAdminCreated] = useState(false);
 
   useEffect(() => {
     // Check current connection status when the page loads
@@ -92,6 +101,30 @@ const SettingsPage: React.FC = () => {
       toast.info("URL format corrected to API server format. Try connecting now.");
     } catch (e) {
       toast.error("Could not fix URL format automatically. Please check the URL format manually.");
+    }
+  };
+
+  const createAdminUser = async () => {
+    setCreatingAdmin(true);
+    try {
+      // Create admin user using the API
+      await UserAPI.create({
+        username: adminUsername,
+        email: adminEmail,
+        password: adminPassword,
+        role: UserRole.ADMIN,
+      });
+      
+      toast.success("Admin user created successfully! You can now log in.");
+      setAdminCreated(true);
+      
+      // Redirect to login page after a short delay
+      setTimeout(() => navigate("/login"), 1500);
+    } catch (error: any) {
+      console.error('Error creating admin user:', error);
+      toast.error(`Failed to create admin user: ${error.message}`);
+    } finally {
+      setCreatingAdmin(false);
     }
   };
 
@@ -212,6 +245,71 @@ const SettingsPage: React.FC = () => {
           </Button>
         </CardFooter>
       </Card>
+
+      {/* Admin User Creation Card - only shown when server is connected */}
+      {serverStatus && (
+        <Card className="border-2 border-blue-200">
+          <CardHeader className="bg-blue-50">
+            <CardTitle>Create Admin Account</CardTitle>
+            <CardDescription>
+              Set up an initial admin account to log into the system
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-4">
+            {adminCreated && (
+              <Alert variant="default" className="bg-green-50 border-green-200 mb-4">
+                <AlertTitle className="text-green-700">Admin Created</AlertTitle>
+                <AlertDescription className="text-green-600">
+                  Admin user has been created successfully. You can now log in.
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="adminEmail">Admin Email</Label>
+                <Input
+                  id="adminEmail"
+                  type="email"
+                  value={adminEmail}
+                  onChange={(e) => setAdminEmail(e.target.value)}
+                  placeholder="admin@example.com"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="adminUsername">Admin Username</Label>
+                <Input
+                  id="adminUsername"
+                  value={adminUsername}
+                  onChange={(e) => setAdminUsername(e.target.value)}
+                  placeholder="Admin"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="adminPassword">Admin Password</Label>
+                <Input
+                  id="adminPassword"
+                  type="password"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-between bg-blue-50 border-t">
+            <Button
+              onClick={createAdminUser}
+              disabled={creatingAdmin || !adminEmail || !adminUsername || !adminPassword}
+              className="w-full"
+            >
+              {creatingAdmin ? "Creating Admin..." : "Create Admin User"}
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
     </div>
   );
 };
