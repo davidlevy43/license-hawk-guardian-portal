@@ -1,3 +1,4 @@
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -146,7 +147,15 @@ function checkAndCreateAdminUser() {
 
 // Simple health check endpoint
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'ok', message: 'Server is running' });
+  res.status(200).json({ 
+    status: 'ok', 
+    message: 'Server is running',
+    time: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    hostname: os.hostname(),
+    platform: os.platform(),
+    nodeVersion: process.version
+  });
 });
 
 // User API endpoints

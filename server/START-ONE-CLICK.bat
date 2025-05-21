@@ -37,7 +37,7 @@ if %ERRORLEVEL% equ 0 (
 
 REM If service doesn't exist or couldn't start, run directly
 echo Starting License Manager directly...
-start "License Manager" /b cmd /c "start-service-reliable.bat"
+start "License Manager" /b cmd /c "node server.js > service-output.log 2> service-error.log"
 
 echo Opening browser...
 timeout /t 3 /nobreak > nul
