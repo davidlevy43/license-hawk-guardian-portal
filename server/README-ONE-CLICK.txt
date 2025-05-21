@@ -15,6 +15,12 @@ FOR DAILY USE:
 -------------
 Simply double-click "START-ONE-CLICK.bat" to launch the application
 
+FOR DEVELOPMENT WITH NETWORK ACCESS:
+-----------------------------------
+If you're developing the application and want to access it from other computers:
+1. Run "START-DEV-SERVER.bat" to start the development server with network access
+2. Other computers can connect using http://iltela21:8080 or http://YOUR_SERVER_IP:8080
+
 TROUBLESHOOTING:
 ---------------
 If you encounter issues:
@@ -27,6 +33,7 @@ ACCESSING THE APPLICATION:
 ------------------------
 Once running, you can access the application at:
 - http://localhost:3001 (from this computer)
+- http://iltela21:3001 (from other computers on the network)
 - http://YOUR_SERVER_IP:3001 (from other computers on the network)
 
 Your server IP addresses:
@@ -39,6 +46,6 @@ STOPPING THE SERVICE:
 
 ADDITIONAL INFORMATION:
 ---------------------
-- The application runs on port 3001
+- The application runs on port 3001 (production) or 8080 (development)
 - Data is stored in a SQLite database in the server folder
 - The frontend files are built and stored in the dist folder

@@ -65,6 +65,19 @@ if %ERRORLEVEL% neq 0 (
     echo Check service-error.log for details.
 )
 
+REM Get the server's network interfaces
+echo ===================================================
+echo SERVER ACCESS INFORMATION:
+echo ===================================================
+echo Local access: http://localhost:3001
+echo Network access:
+ipconfig | findstr /i "IPv4" | findstr /v "Loopback"
+echo.
+echo For other computers on the network, use either:
+echo - http://iltela21:3001
+echo - OR use the IP address shown above
+echo ===================================================
+
 echo Opening browser...
 start http://iltela21:3001
 
