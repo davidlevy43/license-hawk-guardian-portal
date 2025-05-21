@@ -17,6 +17,7 @@ import { HealthAPI, UserAPI } from "@/services/api";
 import { useNavigate } from "react-router-dom";
 import { Label } from "@/components/ui/label";
 import { UserRole } from "@/types";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Get the server's IP address (to display as hint)
 const getLocalIpAddress = () => {
@@ -30,6 +31,7 @@ const SettingsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [serverStatus, setServerStatus] = useState<boolean | null>(null);
+  const [diagnosticInfo, setDiagnosticInfo] = useState<string | null>(null);
   
   // Admin user creation state
   const [adminEmail, setAdminEmail] = useState('admin@example.com');
@@ -64,15 +66,67 @@ const SettingsPage: React.FC = () => {
       toast.success("Server connection successful! Settings saved.");
       setServerStatus(true);
       
-      // Redirect to login page
-      setTimeout(() => navigate("/login"), 1000);
+      // Show a success message with additional diagnostic info
+      const apiInfoResponse = await fetch(`${apiUrl}/api/health`, { method: 'GET' });
+      if (apiInfoResponse.ok) {
+        const apiInfo = await apiInfoResponse.json();
+        setDiagnosticInfo(JSON.stringify(apiInfo, null, 2));
+      }
+      
+      // Redirect to login page after a delay
+      setTimeout(() => navigate("/login"), 2000);
     } catch (error: any) {
       console.error("Connection error:", error);
       setConnectionError(`Could not connect to the server at ${apiUrl}`);
       setServerStatus(false);
       toast.error(`Connection failed: ${error.message}`);
+      
+      // Run diagnostics
+      runConnectionDiagnostics(apiUrl);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const runConnectionDiagnostics = async (url: string) => {
+    try {
+      // Parse the URL to get hostname
+      const parsedUrl = new URL(url);
+      const hostname = parsedUrl.hostname;
+      
+      // Build diagnostic info
+      let diagnostics = `Diagnostics for ${url}:\n`;
+      diagnostics += `- Browser: ${navigator.userAgent}\n`;
+      diagnostics += `- Current URL: ${window.location.href}\n`;
+      diagnostics += `- Connecting to: ${hostname} on port ${parsedUrl.port || '80/443'}\n`;
+      
+      // Common issues
+      if (hostname === 'localhost' && window.location.hostname !== 'localhost') {
+        diagnostics += `\nPossible issue: You're trying to connect to 'localhost' from a remote browser.\n`;
+        diagnostics += `'localhost' only works on the same computer as the server.\n`;
+        diagnostics += `Try using the server's actual IP address instead.\n`;
+      }
+      
+      if (hostname === '127.0.0.1' && window.location.hostname !== 'localhost') {
+        diagnostics += `\nPossible issue: You're trying to connect to '127.0.0.1' from a remote browser.\n`;
+        diagnostics += `'127.0.0.1' only works on the same computer as the server.\n`;
+        diagnostics += `Try using the server's actual IP address instead.\n`;
+      }
+      
+      // CORS issues
+      diagnostics += `\nTrying to check for CORS issues...\n`;
+      
+      // Suggest possible solutions
+      diagnostics += `\nPossible solutions:\n`;
+      diagnostics += `1. Make sure the server is running (check service-output.log)\n`;
+      diagnostics += `2. Check if the server is listening on the correct port (3001)\n`;
+      diagnostics += `3. Verify the server is accepting connections from all network interfaces\n`;
+      diagnostics += `4. Check if a firewall is blocking connections to port 3001\n`;
+      diagnostics += `5. Run 'setup-once-forever.bat' as Administrator to fix common issues\n`;
+      
+      setDiagnosticInfo(diagnostics);
+    } catch (error) {
+      setDiagnosticInfo(`Error running diagnostics: ${error}`);
     }
   };
 
@@ -135,185 +189,185 @@ const SettingsPage: React.FC = () => {
   return (
     <div className="space-y-6 max-w-3xl mx-auto py-8 px-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Connection Settings</h1>
+        <h1 className="text-2xl font-bold tracking-tight">License Manager Settings</h1>
         <p className="text-muted-foreground">
-          Connect to your license management server
+          Configure your connection to the license management server
         </p>
       </div>
 
-      <Card className="border-2 border-amber-200">
-        <CardHeader className="bg-amber-50">
-          <CardTitle className="flex items-center gap-2">
-            <span>⚠️</span>
-            <span>Server Connection Required</span>
-          </CardTitle>
-          <CardDescription className="text-amber-800">
-            Your application needs to connect to an API server running on port 3001.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 pt-6">
-          {serverStatus === true && (
-            <Alert variant="default" className="bg-green-50 border-green-200 mb-4">
-              <AlertTitle className="text-green-700">Connected</AlertTitle>
-              <AlertDescription className="text-green-600">
-                Successfully connected to {sessionStorage.getItem('api_server_url') || API_URL}
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          {serverStatus === false && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertTitle>Connection Error</AlertTitle>
-              <AlertDescription>
-                {connectionError || "Unable to connect to the server. Please ensure the API server is running."}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <div className="space-y-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-              <h3 className="font-medium text-blue-800">Server Not Running?</h3>
-              <ol className="list-decimal ml-5 mt-2 text-sm text-blue-700 space-y-2">
-                <li>Make sure your API server is running with: <code className="bg-blue-100 px-1 py-0.5 rounded">cd server && node server.js</code></li>
-                <li>Check that the server is running on port 3001</li>
-                <li><strong>Important:</strong> To build the frontend, run: <code className="bg-blue-100 px-1 py-0.5 rounded">cd /path/to/project/root && npm run build</code> or <code className="bg-blue-100 px-1 py-0.5 rounded">yarn build</code> from the <strong>main project directory (NOT from the server directory)</strong></li>
-              </ol>
-            </div>
-
-            <div className="bg-amber-50 border border-amber-200 rounded-md p-4 mb-4">
-              <h3 className="font-medium text-amber-800">Build Error?</h3>
-              <p className="text-sm text-amber-700 mt-2">If you're seeing a "Missing script: build" error, you might be in the wrong directory. The build command must be run from the main project directory, not from the server directory.</p>
-              <div className="mt-2 bg-amber-100 p-2 rounded-md text-sm font-mono">
-                <p>❌ Running from server directory: <span className="text-red-600">cd server && npm run build</span></p>
-                <p>✅ Correct way: <span className="text-green-600">cd .. && npm run build</span> (or go to the root project folder)</p>
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="apiUrl">Server URL</Label>
-              <Input
-                id="apiUrl"
-                value={apiUrl}
-                onChange={(e) => setApiUrl(e.target.value)}
-                placeholder="http://server-ip:3001"
-              />
-              <p className="text-sm text-muted-foreground">
-                The URL should include the protocol (http://), server hostname or IP, and port 3001.
-              </p>
-            </div>
-
-            <div className="bg-muted p-4 rounded-md border space-y-3">
-              <h3 className="font-medium">Connection Troubleshooting</h3>
+      <Tabs defaultValue="connection">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="connection">Server Connection</TabsTrigger>
+          <TabsTrigger value="admin" disabled={!serverStatus}>Admin Setup</TabsTrigger>
+        </TabsList>
+      
+        <TabsContent value="connection" className="mt-4">
+          <Card className="border-2 border-amber-200">
+            <CardHeader className="bg-amber-50">
+              <CardTitle className="flex items-center gap-2">
+                <span>⚠️</span>
+                <span>Server Connection Required</span>
+              </CardTitle>
+              <CardDescription className="text-amber-800">
+                Your application needs to connect to an API server running on port 3001.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-6">
+              {serverStatus === true && (
+                <Alert variant="default" className="bg-green-50 border-green-200 mb-4">
+                  <AlertTitle className="text-green-700">Connected Successfully</AlertTitle>
+                  <AlertDescription className="text-green-600">
+                    Successfully connected to {sessionStorage.getItem('api_server_url') || API_URL}
+                  </AlertDescription>
+                </Alert>
+              )}
               
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">Common Configuration</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="justify-start text-left" 
-                    onClick={() => setApiUrl(`http://localhost:3001`)}
-                  >
-                    Local Development: http://localhost:3001
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="justify-start text-left"
-                    onClick={() => setApiUrl(`http://${window.location.hostname}:3001`)}
-                  >
-                    Current Host: http://{window.location.hostname}:3001
-                  </Button>
+              {serverStatus === false && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertTitle>Connection Error</AlertTitle>
+                  <AlertDescription>
+                    {connectionError || "Unable to connect to the server. Please ensure the API server is running."}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <div className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                  <h3 className="font-medium text-blue-800">Quick Start Guide</h3>
+                  <ol className="list-decimal ml-5 mt-2 text-sm text-blue-700 space-y-2">
+                    <li>Make sure you've run <code className="bg-blue-100 px-1 py-0.5 rounded">setup-once-forever.bat</code> as Administrator</li>
+                    <li>If the service isn't running, double-click <code className="bg-blue-100 px-1 py-0.5 rounded">START-ONE-CLICK.bat</code></li>
+                    <li>If you're connecting from another computer, use the server's IP address instead of "localhost"</li>
+                  </ol>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="apiUrl">Server URL</Label>
+                  <Input
+                    id="apiUrl"
+                    value={apiUrl}
+                    onChange={(e) => setApiUrl(e.target.value)}
+                    placeholder="http://server-ip:3001"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    The URL should include the protocol (http://), server hostname or IP, and port 3001.
+                  </p>
+                </div>
+
+                <div className="bg-muted p-4 rounded-md border space-y-3">
+                  <h3 className="font-medium">Connection Troubleshooting</h3>
+                  
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium">Common Configurations</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="justify-start text-left" 
+                        onClick={() => setApiUrl(`http://localhost:3001`)}
+                      >
+                        Local: http://localhost:3001
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="justify-start text-left"
+                        onClick={() => setApiUrl(`http://${window.location.hostname}:3001`)}
+                      >
+                        Current Host: http://{window.location.hostname}:3001
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {diagnosticInfo && (
+                    <div className="mt-4">
+                      <h4 className="text-sm font-medium mb-2">Diagnostic Information</h4>
+                      <div className="bg-gray-100 p-3 rounded-md text-xs font-mono whitespace-pre-wrap max-h-40 overflow-y-auto">
+                        {diagnosticInfo}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-              
-              <div>
-                <h4 className="text-sm font-medium mb-2">Checklist</h4>
-                <ul className="text-sm space-y-1 list-disc pl-5">
-                  <li>Server is running on port 3001</li>
-                  <li>No firewall blocking the connection</li>
-                  <li>Correct server IP or hostname</li>
-                  <li>Server and client on same network (if applicable)</li>
-                  <li>Frontend is built from the main project directory (not server directory)</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-        <CardFooter className="flex flex-wrap gap-2 bg-gray-50 border-t">
-          <Button onClick={handleSaveApiUrl} disabled={isLoading}>
-            {isLoading ? "Connecting..." : "Connect to Server"}
-          </Button>
-          <Button variant="outline" onClick={handleFixUrl} type="button">
-            Fix URL Format
-          </Button>
-        </CardFooter>
-      </Card>
+            </CardContent>
+            <CardFooter className="flex flex-wrap gap-2 bg-gray-50 border-t">
+              <Button onClick={handleSaveApiUrl} disabled={isLoading}>
+                {isLoading ? "Connecting..." : "Connect to Server"}
+              </Button>
+              <Button variant="outline" onClick={handleFixUrl} type="button">
+                Fix URL Format
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
 
-      {/* Admin User Creation Card - only shown when server is connected */}
-      {serverStatus && (
-        <Card className="border-2 border-blue-200">
-          <CardHeader className="bg-blue-50">
-            <CardTitle>Create Admin Account</CardTitle>
-            <CardDescription>
-              Set up an initial admin account to log into the system
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-4">
-            {adminCreated && (
-              <Alert variant="default" className="bg-green-50 border-green-200 mb-4">
-                <AlertTitle className="text-green-700">Admin Created</AlertTitle>
-                <AlertDescription className="text-green-600">
-                  Admin user has been created successfully. You can now log in.
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="adminEmail">Admin Email</Label>
-                <Input
-                  id="adminEmail"
-                  type="email"
-                  value={adminEmail}
-                  onChange={(e) => setAdminEmail(e.target.value)}
-                  placeholder="admin@example.com"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="adminUsername">Admin Username</Label>
-                <Input
-                  id="adminUsername"
-                  value={adminUsername}
-                  onChange={(e) => setAdminUsername(e.target.value)}
-                  placeholder="Admin"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="adminPassword">Admin Password</Label>
-                <Input
-                  id="adminPassword"
-                  type="password"
-                  value={adminPassword}
-                  onChange={(e) => setAdminPassword(e.target.value)}
-                  placeholder="••••••••"
-                />
-              </div>
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-between bg-blue-50 border-t">
-            <Button
-              onClick={createAdminUser}
-              disabled={creatingAdmin || !adminEmail || !adminUsername || !adminPassword}
-              className="w-full"
-            >
-              {creatingAdmin ? "Creating Admin..." : "Create Admin User"}
-            </Button>
-          </CardFooter>
-        </Card>
-      )}
+        <TabsContent value="admin" className="mt-4">
+          {/* Admin User Creation Card - only shown when server is connected */}
+          {serverStatus && (
+            <Card className="border-2 border-blue-200">
+              <CardHeader className="bg-blue-50">
+                <CardTitle>Create Admin Account</CardTitle>
+                <CardDescription>
+                  Set up an initial admin account to log into the system
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-4">
+                {adminCreated && (
+                  <Alert variant="default" className="bg-green-50 border-green-200 mb-4">
+                    <AlertTitle className="text-green-700">Admin Created</AlertTitle>
+                    <AlertDescription className="text-green-600">
+                      Admin user has been created successfully. You can now log in.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="adminEmail">Admin Email</Label>
+                    <Input
+                      id="adminEmail"
+                      type="email"
+                      value={adminEmail}
+                      onChange={(e) => setAdminEmail(e.target.value)}
+                      placeholder="admin@example.com"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="adminUsername">Admin Username</Label>
+                    <Input
+                      id="adminUsername"
+                      value={adminUsername}
+                      onChange={(e) => setAdminUsername(e.target.value)}
+                      placeholder="Admin"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="adminPassword">Admin Password</Label>
+                    <Input
+                      id="adminPassword"
+                      type="password"
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                      placeholder="••••••••"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter className="flex justify-between bg-blue-50 border-t">
+                <Button
+                  onClick={createAdminUser}
+                  disabled={creatingAdmin || !adminEmail || !adminUsername || !adminPassword}
+                  className="w-full"
+                >
+                  {creatingAdmin ? "Creating Admin..." : "Create Admin User"}
+                </Button>
+              </CardFooter>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

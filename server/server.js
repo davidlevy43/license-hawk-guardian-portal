@@ -5,6 +5,7 @@ const sqlite3 = require('sqlite3').verbose();
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 // Initialize express app
 const app = express();
@@ -13,6 +14,24 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
+
+// Get machine's IP addresses for logging
+function getLocalIpAddresses() {
+  const interfaces = os.networkInterfaces();
+  const addresses = [];
+  
+  for (const interfaceName in interfaces) {
+    const iface = interfaces[interfaceName];
+    for (let i = 0; i < iface.length; i++) {
+      const alias = iface[i];
+      if (alias.family === 'IPv4' && !alias.internal) {
+        addresses.push(alias.address);
+      }
+    }
+  }
+  
+  return addresses;
+}
 
 // Check if dist directory exists before serving static files
 const distPath = path.join(__dirname, '../dist');
@@ -501,24 +520,69 @@ app.get('*', (req, res) => {
   } else {
     res.status(200).send(`
       <html>
-        <head><title>License Manager API Server</title></head>
+        <head>
+          <title>License Manager API Server</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; }
+            code { background-color: #f4f4f4; padding: 2px 5px; border-radius: 3px; }
+            .error { color: #d32f2f; }
+            .success { color: #388e3c; }
+          </style>
+        </head>
         <body>
           <h1>License Manager API Server is running</h1>
           <p>The API server is running successfully, but the frontend files are not available.</p>
           <p>API endpoints are available at: <code>http://[your-server-ip]:${PORT}/api/</code></p>
-          <p>To serve the frontend, build the React app using <code>npm run build</code> or <code>yarn build</code></p>
+          
+          <h2>Quick Setup Instructions</h2>
+          <ol>
+            <li>Navigate to the project root directory (one level up from server)</li>
+            <li>Run <code>npm install</code> to install dependencies</li>
+            <li>Run <code>npm run build</code> to build the frontend</li>
+            <li>Restart this server</li>
+          </ol>
+          
+          <h2>Alternative Setup</h2>
+          <p>For a one-click setup, run <code>setup-once-forever.bat</code> as Administrator.</p>
+          
+          <h2>Current Server Information</h2>
+          <p>Server process ID: <code>${process.pid}</code></p>
+          <p>Available IP addresses: <code>${getLocalIpAddresses().join(', ')}</code></p>
         </body>
       </html>
     `);
   }
 });
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).json({ error: 'Internal server error', message: err.message });
+});
+
 // Start the server - Listen on all network interfaces 
 app.listen(PORT, '0.0.0.0', () => {
+  const ipAddresses = getLocalIpAddresses();
+  console.log(`=== License Manager Server Started ===`);
   console.log(`Server running on port ${PORT}`);
-  console.log(`API available at http://YOUR_SERVER_IP:${PORT}/api/`);
-  console.log(`To access from other devices, replace YOUR_SERVER_IP with this machine's IP address`);
   console.log(`Server process ID: ${process.pid}`);
+  console.log(`\nAccess URLs:`);
+  
+  // Log localhost URL
+  console.log(`- Local: http://localhost:${PORT}`);
+  
+  // Log all network URLs
+  ipAddresses.forEach(ip => {
+    console.log(`- Network: http://${ip}:${PORT}`);
+  });
+  
+  console.log(`\nAPI endpoints available at:`);
+  console.log(`- Local: http://localhost:${PORT}/api/`);
+  ipAddresses.forEach(ip => {
+    console.log(`- Network: http://${ip}:${PORT}/api/`);
+  });
+  
+  console.log(`\n=== Server Ready ===`);
 });
 
 // Handle proper shutdown
@@ -526,4 +590,10 @@ process.on('SIGINT', () => {
   console.log('Closing database connection');
   db.close();
   process.exit(0);
+});
+
+// Handle unexpected errors
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+  // Keep server running despite errors
 });
