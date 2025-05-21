@@ -1,4 +1,3 @@
-
 export enum UserRole {
   ADMIN = "admin",
   USER = "user"
@@ -10,6 +9,7 @@ export interface User {
   email: string;
   role: UserRole;
   createdAt: Date;
+  password?: string; // Added optional password field for user creation
 }
 
 export enum LicenseStatus {
