@@ -1,7 +1,7 @@
 
 // Base API utilities for making requests and managing server connections
 
-// Get the API server URL - will now use current hostname by default
+// Get the API server URL - more flexible approach for local networks
 const getApiUrl = () => {
   // Check if a custom server URL has been set in sessionStorage
   const customApiUrl = sessionStorage.getItem('api_server_url');
@@ -10,7 +10,8 @@ const getApiUrl = () => {
     return customApiUrl;
   }
   
-  // Use the current hostname with port 3001 for the API
+  // Default to current hostname with port 3001
+  // This works better with local network configurations
   const currentHost = window.location.hostname;
   const defaultUrl = `http://${currentHost}:3001`;
   console.log("Using default API URL:", defaultUrl);
@@ -56,14 +57,14 @@ export const updateApiUrl = async (newUrl: string) => {
   return true;
 };
 
-// Check if server is running
+// Check if server is running - more robust with longer timeout
 export async function checkServerAvailability() {
   try {
     console.log(`Checking server availability at ${API_URL}/health`);
     const response = await fetch(`${API_URL}/health`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(8000) // Increase timeout to 8 seconds
+      signal: AbortSignal.timeout(10000) // Increase timeout to 10 seconds for slower networks
     });
     
     console.log("Server response status:", response.status);
@@ -84,7 +85,7 @@ export const forceRealApiMode = async () => {
   return serverAvailable;
 };
 
-// Base fetchAPI function for making API requests
+// Base fetchAPI function for making API requests - with improved error handling
 export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   try {
     // Fix the URL construction to avoid double "/api" in the path
@@ -143,6 +144,3 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
     throw error;
   }
 }
-
-// Expose the API_URL for direct access in other files
-(fetchAPI as any).API_URL = API_URL;

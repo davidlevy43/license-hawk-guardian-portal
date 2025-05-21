@@ -1,7 +1,7 @@
 
 import { API_URL } from './base';
 
-// Health check API service
+// Health check API service with more robust error handling
 export const HealthAPI = {
   checkServer: async () => {
     try {

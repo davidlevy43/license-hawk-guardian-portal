@@ -61,6 +61,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log("Attempting login with email:", email);
       
+      try {
+        // First test if the server is available
+        const healthResponse = await fetch(`${API_URL}/health`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(5000) // 5 second timeout
+        });
+        
+        if (!healthResponse.ok) {
+          throw new Error("Server health check failed");
+        }
+      } catch (error) {
+        console.error("Server health check failed:", error);
+        throw new Error("Unable to connect to the server. Please check if the server is running and accessible.");
+      }
+      
       // In a production app, we would use a dedicated login endpoint.
       // For this app, we'll need to first get the user by email
       const response = await fetch(`${API_URL}/api/users`, {
