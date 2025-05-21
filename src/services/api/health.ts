@@ -11,6 +11,11 @@ export const HealthAPI = {
         return true;
       }
       
+      // For iltela21 server - specific handling
+      if (window.location.hostname === 'iltela21') {
+        console.log("Checking local iltela21 server health");
+      }
+      
       // Ensure we don't have double "/api" in URL path
       const healthEndpoint = `${API_URL}/health`;
       console.log(`Checking server health at ${healthEndpoint}`);

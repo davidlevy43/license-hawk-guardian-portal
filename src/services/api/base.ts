@@ -16,6 +16,13 @@ const getApiUrl = () => {
     console.log("Using fallback URL for Lovable environment:", fallbackUrl);
     return fallbackUrl;
   }
+
+  // Support for specific server name "iltela21"
+  if (window.location.hostname === 'iltela21') {
+    const serverUrl = `http://iltela21:3001`;
+    console.log("Using iltela21 server URL:", serverUrl);
+    return serverUrl;
+  }
   
   // Default to current hostname with port 3001
   // This works better with local network configurations
@@ -122,6 +129,8 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
         'Content-Type': 'application/json',
         ...options.headers,
       },
+      // Add cache control header for offline environments to prevent stale data
+      cache: 'no-cache',
     });
 
     if (!response.ok) {

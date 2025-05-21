@@ -11,7 +11,7 @@ if %ERRORLEVEL% equ 0 (
     REM Service is running - open browser
     echo License Manager service is already running.
     echo Opening in browser...
-    start http://localhost:3001
+    start http://iltela21:3001
     exit /b 0
 )
 
@@ -25,7 +25,7 @@ if %ERRORLEVEL% equ 0 (
     sc query LicenseManagerService | findstr "RUNNING" > nul
     if %ERRORLEVEL% equ 0 (
         echo Service started successfully.
-        start http://localhost:3001
+        start http://iltela21:3001
         exit /b 0
     ) else (
         echo Service failed to start. Using direct start method instead.
@@ -39,7 +39,7 @@ REM If service doesn't exist or couldn't start, run directly
 echo Starting License Manager directly...
 
 REM Check for Node.js installation
-where node >nul 2>&1
+where node >nul 2>nul
 if %ERRORLEVEL% neq 0 (
     echo ERROR: Node.js is not installed or not in PATH.
     echo Please install Node.js and try again.
@@ -52,7 +52,7 @@ REM Make sure output files exist
 echo > service-output.log
 echo > service-error.log
 
-REM Start the server directly
+REM Start the server directly - explicitly bind to all IP addresses (0.0.0.0)
 start "License Manager" /b cmd /c "node server.js > service-output.log 2> service-error.log"
 
 echo Waiting for server to start...
@@ -66,7 +66,7 @@ if %ERRORLEVEL% neq 0 (
 )
 
 echo Opening browser...
-start http://localhost:3001
+start http://iltela21:3001
 
 echo Done! License Manager should be running now.
 echo If you encounter issues, please run setup-once-forever.bat as Administrator.
