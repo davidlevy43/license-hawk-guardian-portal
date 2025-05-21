@@ -33,9 +33,12 @@ if %ERRORLEVEL% neq 0 (
 
     echo Installing IIS Management Console...
     dism /online /enable-feature /featurename:IIS-ManagementConsole /quiet
-
-    echo Installing ASP.NET 4.8...
+    
+    echo Installing ASP.NET modules...
+    dism /online /enable-feature /featurename:IIS-ASPNET /quiet
     dism /online /enable-feature /featurename:IIS-ASPNET45 /all /quiet
+    dism /online /enable-feature /featurename:IIS-ApplicationDevelopment /quiet
+    dism /online /enable-feature /featurename:NetFx4Extended-ASPNET45 /quiet
 
     echo Installing URL Rewrite Module...
     echo This may take a moment, please wait...
@@ -218,7 +221,12 @@ echo ^</configuration^> >> web.config
 echo Web.config created successfully.
 echo [%date% %time%] Web.config created successfully >> iis-setup-log.txt
 
-REM Create IIS Website
+REM Stop IIS first to ensure clean site creation
+echo Stopping IIS services...
+iisreset /stop
+timeout /t 5
+
+REM Define clear site name and create IIS Website
 set SITE_NAME=LicenseManager
 set APP_POOL_NAME=LicenseManagerPool
 set PHYSICAL_PATH=%cd%
@@ -239,15 +247,32 @@ echo Creating IIS website...
 REM Check if the site already exists
 %windir%\system32\inetsrv\appcmd.exe list site /name:%SITE_NAME% > nul 2>&1
 if %ERRORLEVEL% equ 0 (
-    echo Website %SITE_NAME% already exists. Recreating...
+    echo Website %SITE_NAME% already exists. Deleting it...
     %windir%\system32\inetsrv\appcmd.exe delete site %SITE_NAME%
+    timeout /t 2
 )
 
 REM Create the website with binding to all IP addresses
-%windir%\system32\inetsrv\appcmd.exe add site /name:%SITE_NAME% /physicalPath:%PHYSICAL_PATH% /bindings:http/*:3001:
+echo Creating new website with name: %SITE_NAME%
+%windir%\system32\inetsrv\appcmd.exe add site /name:%SITE_NAME% /physicalPath:"%PHYSICAL_PATH%" /bindings:http/*:3001:
 %windir%\system32\inetsrv\appcmd.exe set site /site.name:%SITE_NAME% /[path='/'].applicationPool:%APP_POOL_NAME%
-echo Website created.
+
+REM Verify site was created
+%windir%\system32\inetsrv\appcmd.exe list site /name:%SITE_NAME% > nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo ERROR: Failed to create website in IIS.
+    echo [%date% %time%] ERROR: Website creation failed >> iis-setup-log.txt
+    pause
+    exit /b 1
+)
+
+echo Website created successfully.
 echo [%date% %time%] Website created >> iis-setup-log.txt
+
+REM Start IIS
+echo Starting IIS services...
+iisreset /start
+timeout /t 5
 
 REM Configure Windows Firewall
 echo Configuring Windows Firewall...
@@ -267,6 +292,9 @@ REM Create shortcut to application
 powershell -Command "& {$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%PublicDesktop%\License Manager.lnk'); $Shortcut.TargetPath = 'http://localhost:3001'; $Shortcut.Save(); Write-Host 'Created shortcut on Public desktop'}"
 powershell -Command "& {$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%UserDesktop%\License Manager.lnk'); $Shortcut.TargetPath = 'http://localhost:3001'; $Shortcut.Save(); Write-Host 'Created shortcut on User desktop'}"
 
+REM Create shortcut to open IIS Manager
+powershell -Command "& {$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%UserDesktop%\IIS Manager.lnk'); $Shortcut.TargetPath = 'C:\Windows\System32\inetsrv\InetMgr.exe'; $Shortcut.Save(); Write-Host 'Created IIS Manager shortcut'}"
+
 REM Create script to start IIS Express for testing
 echo Creating IIS Express start script...
 echo @echo off > start-iis-express.bat
@@ -283,6 +311,10 @@ for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /i "IPv4" ^| findstr /v 
 
 :found_ip
 if "!IP!"=="" set IP=localhost
+
+REM Open IIS Manager automatically
+echo Opening IIS Manager...
+start inetmgr
 
 echo.
 echo ===================================================
@@ -304,9 +336,10 @@ echo - Port: 3001
 echo.
 echo Shortcuts have been created on your desktop:
 echo - "License Manager" - Opens the application in your browser
+echo - "IIS Manager" - Opens IIS Manager to manage the website
 echo.
 echo To manage the website in IIS Manager:
-echo 1. Open IIS Manager (Start menu -^> Run -^> "inetmgr")
+echo 1. Open IIS Manager (We've opened it for you)
 echo 2. Navigate to Sites -^> %SITE_NAME%
 echo.
 echo If you encounter any issues, please check:

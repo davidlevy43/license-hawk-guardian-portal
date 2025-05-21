@@ -22,6 +22,15 @@ If you want to run the application as an IIS website:
 2. Wait for the installation to complete
 3. The application will be available at http://iltela21:3001 or http://YOUR_SERVER_IP:3001
 
+IIS WEBSITE TROUBLESHOOTING:
+---------------------------
+If you don't see the website in IIS Manager:
+1. Make sure you ran the script as administrator
+2. Try restarting IIS by typing 'iisreset' in an administrator command prompt
+3. Manually open IIS Manager (Start menu -> Run -> "inetmgr")
+4. Look for a website named "LicenseManager" in the Sites folder
+5. If it doesn't exist, check the installation logs (iis-setup-log.txt)
+
 FOR DEVELOPMENT WITH NETWORK ACCESS:
 -----------------------------------
 If you're developing the application and want to access it from other computers:
@@ -55,5 +64,6 @@ STOPPING THE SERVICE:
 ADDITIONAL INFORMATION:
 ---------------------
 - The application runs on port 3001 (production) or 8080 (development)
-- Data is stored in a SQLite database in the server folder
+- Data is stored in a SQLite database in the server folder (database.sqlite)
 - The frontend files are built and stored in the dist folder
+
