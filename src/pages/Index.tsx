@@ -18,8 +18,7 @@ const Index: React.FC = () => {
         const serverAvailable = await HealthAPI.checkServer();
         
         if (!serverAvailable) {
-          const apiUrl = sessionStorage.getItem('api_server_url') || 'API server';
-          setServerError(`Unable to connect to the API server. The application requires a server running on port 3001.`);
+          setServerError(`Unable to connect to the License Manager API server. Please verify that the server is running on port 3001.`);
           // We'll show an error message instead of automatically redirecting
         } else {
           // If we have a valid session token, go to dashboard, otherwise to login
@@ -28,7 +27,7 @@ const Index: React.FC = () => {
         }
       } catch (error) {
         console.error("Server check failed:", error);
-        setServerError(`Unable to connect to the API server. The application requires a server running on port 3001.`);
+        setServerError(`Unable to connect to the License Manager API server. Please verify that the server is running on port 3001.`);
       } finally {
         setIsCheckingServer(false);
       }
@@ -44,9 +43,15 @@ const Index: React.FC = () => {
           <AlertTitle>Connection Error</AlertTitle>
           <AlertDescription>{serverError}</AlertDescription>
         </Alert>
-        <p className="text-muted-foreground mb-4 text-center max-w-md">
-          Make sure the API server is running on port 3001. The application cannot function without a connection to the API server.
-        </p>
+        <div className="text-muted-foreground mb-4 text-center max-w-md">
+          <p className="mb-2">Make sure the API server is running on port 3001.</p>
+          <p className="mb-2">If you've just installed the service, you may need to build the frontend:</p>
+          <ol className="text-left list-decimal pl-5 mb-3">
+            <li>Navigate to the server directory</li>
+            <li>Run <code className="bg-muted px-1 rounded">build-frontend.bat</code></li>
+            <li>Restart the License Manager service</li>
+          </ol>
+        </div>
         <Button asChild>
           <Link to="/login">Try Again</Link>
         </Button>
