@@ -45,7 +45,7 @@ export const updateApiUrl = async (newUrl: string) => {
   sessionStorage.setItem('api_server_url', newUrl);
   API_URL = newUrl;
   
-  console.log(`Testing connection to ${API_URL}/api/health`);
+  console.log(`Testing connection to ${API_URL}/health`);
   
   // Check if server is available
   const isAvailable = await checkServerAvailability();
@@ -59,23 +59,15 @@ export const updateApiUrl = async (newUrl: string) => {
 // Check if server is running
 export async function checkServerAvailability() {
   try {
-    console.log(`Checking server availability at ${API_URL}/api/health`);
-    const response = await fetch(`${API_URL}/api/health`, {
+    console.log(`Checking server availability at ${API_URL}/health`);
+    const response = await fetch(`${API_URL}/health`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(8000) // Increase timeout to 8 seconds
     });
     
     console.log("Server response status:", response.status);
-    
-    // Check if response is valid JSON
-    const contentType = response.headers.get("content-type");
-    if (contentType && contentType.includes("application/json")) {
-      return response.ok;
-    } else {
-      console.error('Server returned non-JSON response:', contentType);
-      return false;
-    }
+    return response.ok;
   } catch (error) {
     console.error('Server not available:', error);
     return false;
@@ -95,10 +87,16 @@ export const forceRealApiMode = async () => {
 // Base fetchAPI function for making API requests
 export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   try {
-    // Fix the URL construction to prevent double "/api" in the path
-    const fullUrl = endpoint.startsWith('/')
-      ? `${API_URL}/api${endpoint}`
-      : `${API_URL}/api/${endpoint}`;
+    // Fix the URL construction to avoid double "/api" in the path
+    let fullUrl;
+    if (endpoint.startsWith('/api/')) {
+      // If endpoint already contains /api/, don't add it again
+      fullUrl = `${API_URL}${endpoint}`;
+    } else if (endpoint.startsWith('/')) {
+      fullUrl = `${API_URL}/api${endpoint}`;
+    } else {
+      fullUrl = `${API_URL}/api/${endpoint}`;
+    }
       
     console.log(`Making ${options.method || 'GET'} request to ${fullUrl}`);
     
