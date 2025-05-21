@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { User, UserRole } from "@/types";
 import { toast } from "sonner";
-import { fetchAPI, HealthAPI, UserAPI } from "@/services/api";
+import { fetchAPI, HealthAPI } from "@/services/api";
 
 interface AuthContextType {
   currentUser: User | null;
@@ -64,21 +64,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error("Server connection failed. Please ensure the API server is running.");
       }
       
-      // Get all users from the API - in a real app you would have a /login endpoint
-      const users = await UserAPI.getAll();
+      // First try to get the admin user directly instead of fetching all users
+      console.log("Attempting login with email:", email);
       
-      // Find user with matching credentials
-      const user = users.find(u => u.email === email);
+      // In a production app, we would use a dedicated login endpoint.
+      // For this app, we'll need to first get the user by email
+      const response = await fetch(`${fetchAPI.API_URL}/api/users`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
       
-      // In a real-world app, password verification would happen securely on the server
+      if (!response.ok) {
+        throw new Error("Failed to fetch user data");
+      }
+      
+      const users = await response.json();
+      const user = users.find((u: any) => u.email === email);
+      
       if (!user) {
+        console.error("No user found with email:", email);
         throw new Error("Invalid email or password");
       }
-
-      // Get the user's password from the database (in a real app, this would be hashed)
-      const userFromDb = await fetchAPI<any>(`/users/${user.id}`);
       
-      if (!userFromDb || userFromDb.password !== password) {
+      // Get the user's full details including password
+      const userDetailsResponse = await fetch(`${fetchAPI.API_URL}/api/users/${user.id}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!userDetailsResponse.ok) {
+        throw new Error("Failed to fetch user details");
+      }
+      
+      const userDetails = await userDetailsResponse.json();
+      
+      // Compare passwords (in a real app, this would be done securely on the server)
+      if (userDetails.password !== password) {
+        console.error("Password mismatch for user:", email);
         throw new Error("Invalid email or password");
       }
       

@@ -143,3 +143,6 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
     throw error;
   }
 }
+
+// Expose the API_URL for direct access in other files
+(fetchAPI as any).API_URL = API_URL;
