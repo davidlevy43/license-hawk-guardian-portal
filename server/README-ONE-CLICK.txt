@@ -15,6 +15,13 @@ FOR DAILY USE:
 -------------
 Simply double-click "START-ONE-CLICK.bat" to launch the application
 
+FOR IIS WEBSITE INSTALLATION:
+----------------------------
+If you want to run the application as an IIS website:
+1. Right-click on "START-AS-IIS-WEBSITE.bat" and select "Run as administrator"
+2. Wait for the installation to complete
+3. The application will be available at http://iltela21:3001 or http://YOUR_SERVER_IP:3001
+
 FOR DEVELOPMENT WITH NETWORK ACCESS:
 -----------------------------------
 If you're developing the application and want to access it from other computers:
@@ -43,6 +50,7 @@ STOPPING THE SERVICE:
 -------------------
 - To stop the Windows service: Open Services (services.msc), find "License Manager Application", and click Stop
 - If running directly from "start-service-reliable.bat": Close the command window
+- If running as an IIS website: Open IIS Manager, select the "LicenseManager" site, and click "Stop"
 
 ADDITIONAL INFORMATION:
 ---------------------
