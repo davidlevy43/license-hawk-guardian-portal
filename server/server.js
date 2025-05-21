@@ -513,11 +513,12 @@ app.get('*', (req, res) => {
   }
 });
 
-// Start the server - Listen on all network interfaces instead of just localhost
+// Start the server - Listen on all network interfaces 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`API available at http://YOUR_SERVER_IP:${PORT}/api/`);
   console.log(`To access from other devices, replace YOUR_SERVER_IP with this machine's IP address`);
+  console.log(`Server process ID: ${process.pid}`);
 });
 
 // Handle proper shutdown

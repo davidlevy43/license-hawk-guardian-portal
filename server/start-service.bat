@@ -80,6 +80,7 @@ if %ERRORLEVEL% equ 0 (
     echo ===================================================
     echo WARNING: Port 3001 is already in use!
     echo Another application might be using this port.
+    netstat -ano | findstr :3001
     echo ===================================================
     echo [%date% %time%] Warning: Port 3001 already in use >> service-log.txt
     echo Press any key to continue anyway or Ctrl+C to abort...
@@ -94,8 +95,15 @@ REM Create an error log file if it doesn't exist
 if not exist service-error.log type nul > service-error.log
 if not exist service-output.log type nul > service-output.log
 
-REM Start the server with error logging
+REM Show network interfaces for debugging
+ipconfig | findstr /i "IPv4"
+echo.
+
+REM Start the server with error logging and verbose output
 echo [%date% %time%] Starting server process >> service-log.txt
+echo Environment: >> service-output.log
+echo NODE_ENV=%NODE_ENV% >> service-output.log
+echo Starting server with explicit host binding to 0.0.0.0 (all interfaces) >> service-output.log
 node server.js >> service-output.log 2>> service-error.log
 
 REM This line should only be reached if the server exits
