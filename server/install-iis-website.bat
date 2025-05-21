@@ -1,4 +1,3 @@
-
 @echo off
 setlocal enabledelayedexpansion
 
@@ -220,6 +219,12 @@ echo ^</configuration^> >> web.config
 
 echo Web.config created successfully.
 echo [%date% %time%] Web.config created successfully >> iis-setup-log.txt
+
+REM Set proper permissions for web.config file
+echo Setting permissions for web.config file...
+icacls web.config /grant "IIS_IUSRS:(R)" /T
+icacls web.config /grant "NETWORK SERVICE:(R)" /T
+icacls web.config /grant "Everyone:(R)" /T
 
 REM Stop IIS first to ensure clean site creation
 echo Stopping IIS services...
