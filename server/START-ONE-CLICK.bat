@@ -37,10 +37,35 @@ if %ERRORLEVEL% equ 0 (
 
 REM If service doesn't exist or couldn't start, run directly
 echo Starting License Manager directly...
+
+REM Check for Node.js installation
+where node >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo ERROR: Node.js is not installed or not in PATH.
+    echo Please install Node.js and try again.
+    echo You can run setup-once-forever.bat to install it automatically.
+    pause
+    exit /b 1
+)
+
+REM Make sure output files exist
+echo > service-output.log
+echo > service-error.log
+
+REM Start the server directly
 start "License Manager" /b cmd /c "node server.js > service-output.log 2> service-error.log"
 
-echo Opening browser...
+echo Waiting for server to start...
 timeout /t 3 /nobreak > nul
+
+REM Check if server started successfully (by checking if port 3001 is now in use)
+netstat -ano | findstr :3001 > nul
+if %ERRORLEVEL% neq 0 (
+    echo WARNING: Server might not have started correctly.
+    echo Check service-error.log for details.
+)
+
+echo Opening browser...
 start http://localhost:3001
 
 echo Done! License Manager should be running now.
