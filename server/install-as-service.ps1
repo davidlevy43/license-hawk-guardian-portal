@@ -13,15 +13,51 @@ $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIde
 if (-not $isAdmin) {
     Write-Host "This script requires administrator privileges." -ForegroundColor Red
     Write-Host "Please restart PowerShell as Administrator and run the script again." -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Right-click on PowerShell and select 'Run as Administrator'." -ForegroundColor Yellow
+    pause
+    exit 1
+}
+
+# Verify necessary files exist
+if (-not (Test-Path $BatchPath)) {
+    Write-Host "Error: start-service.bat not found at $BatchPath" -ForegroundColor Red
+    Write-Host "Make sure you're running this script from the server directory." -ForegroundColor Yellow
+    pause
+    exit 1
+}
+
+# Check if the node command is available
+$nodeExists = $null -ne (Get-Command "node" -ErrorAction SilentlyContinue)
+if (-not $nodeExists) {
+    Write-Host "Error: Node.js is not installed or not in the PATH." -ForegroundColor Red
+    Write-Host "Please install Node.js from https://nodejs.org/" -ForegroundColor Yellow
+    Write-Host "Then restart PowerShell and try again." -ForegroundColor Yellow
+    pause
     exit 1
 }
 
 # Check if NSSM is present
 if (-not (Test-Path $NSSMPath)) {
     Write-Host "NSSM (Non-Sucking Service Manager) not found. Please download it from https://nssm.cc/download" -ForegroundColor Red
-    Write-Host "Place nssm.exe in the same directory as this script." -ForegroundColor Red
+    Write-Host "Place nssm.exe in the same directory as this script ($WorkingDirectory)." -ForegroundColor Red
     Write-Host "Then run this script again." -ForegroundColor Red
+    pause
     exit 1
+}
+
+# Test if the service batch file can run without errors
+Write-Host "Testing if start-service.bat can run correctly..." -ForegroundColor Cyan
+$testProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c echo Testing batch file & exit" -WorkingDirectory $WorkingDirectory -NoNewWindow -PassThru
+$testProcess.WaitForExit()
+if ($testProcess.ExitCode -ne 0) {
+    Write-Host "Warning: The test run of the batch command failed." -ForegroundColor Yellow
+    Write-Host "There might be issues when running the service." -ForegroundColor Yellow
+    
+    $continue = Read-Host "Continue anyway? (y/n)"
+    if ($continue -ne "y") {
+        exit 1
+    }
 }
 
 # Check for the dist folder
@@ -37,7 +73,22 @@ if (-not (Test-Path $DistPath)) {
         Write-Host "Building frontend..." -ForegroundColor Cyan
         $BuildScript = Join-Path -Path $WorkingDirectory -ChildPath "build-frontend.bat"
         if (Test-Path $BuildScript) {
-            Start-Process -FilePath $BuildScript -Wait -NoNewWindow
+            try {
+                $process = Start-Process -FilePath $BuildScript -Wait -NoNewWindow -PassThru
+                if ($process.ExitCode -ne 0) {
+                    Write-Host "Error: Frontend build failed. Please check the errors and try again." -ForegroundColor Red
+                    $continue = Read-Host "Continue installing the service anyway? (y/n)"
+                    if ($continue -ne "y") {
+                        exit 1
+                    }
+                }
+            } catch {
+                Write-Host "Error: Failed to run build script. $_" -ForegroundColor Red
+                $continue = Read-Host "Continue installing the service anyway? (y/n)"
+                if ($continue -ne "y") {
+                    exit 1
+                }
+            }
         } else {
             Write-Host "Error: build-frontend.bat not found." -ForegroundColor Red
             Write-Host "To build the frontend, navigate to the project root and run:" -ForegroundColor Cyan
@@ -54,6 +105,19 @@ if (-not (Test-Path $DistPath)) {
         if ($continue -ne "y") {
             exit 1
         }
+    }
+}
+
+# Verify service port 3001 is not in use
+$portInUse = $null -ne (Get-NetTCPConnection -LocalPort 3001 -ErrorAction SilentlyContinue)
+if ($portInUse) {
+    Write-Host "WARNING: Port 3001 is already in use!" -ForegroundColor Yellow
+    Write-Host "The service may fail to start because the port is occupied." -ForegroundColor Yellow
+    Write-Host "Close any applications using port 3001 before proceeding." -ForegroundColor Yellow
+    
+    $continue = Read-Host "Continue anyway? (y/n)"
+    if ($continue -ne "y") {
+        exit 1
     }
 }
 
@@ -83,9 +147,16 @@ Write-Host "Installing $ServiceName..." -ForegroundColor Cyan
 & $NSSMPath set $ServiceName AppRotateSeconds 86400
 & $NSSMPath set $ServiceName Start SERVICE_AUTO_START
 
+# Set user context to run service (current user with environment)
+& $NSSMPath set $ServiceName ObjectName LocalSystem
+& $NSSMPath set $ServiceName Type SERVICE_WIN32_OWN_PROCESS
+& $NSSMPath set $ServiceName AppNoConsole 1
+& $NSSMPath set $ServiceName DependOnService Tcpip
+
 # Set the service to restart on failure
 & $NSSMPath set $ServiceName AppExit Default Restart
 & $NSSMPath set $ServiceName AppRestartDelay 10000
+& $NSSMPath set $ServiceName AppThrottle 10000
 
 # Print the Node.js path for debugging
 $NodePath = where.exe node
@@ -102,7 +173,15 @@ if (-not $IPAddress) {
 Write-Host "Starting $ServiceName..." -ForegroundColor Cyan
 try {
     Start-Service -Name $ServiceName -ErrorAction Stop
-    Write-Host "License Manager service has been installed and started successfully." -ForegroundColor Green
+    Start-Sleep -Seconds 5
+    $service = Get-Service -Name $ServiceName
+    
+    if ($service.Status -eq "Running") {
+        Write-Host "License Manager service has been installed and started successfully." -ForegroundColor Green
+    } else {
+        Write-Host "WARNING: The service is installed but not running. Current status: $($service.Status)" -ForegroundColor Yellow
+        Write-Host "Please check the service error logs for details." -ForegroundColor Yellow
+    }
 } catch {
     Write-Host "WARNING: Failed to start the service automatically." -ForegroundColor Red
     Write-Host "You can try to start it manually from Services." -ForegroundColor Yellow
@@ -114,15 +193,16 @@ try {
     
     if ($runDirectly -eq "y") {
         Write-Host "Starting server directly..." -ForegroundColor Cyan
-        Start-Process -FilePath "cmd.exe" -ArgumentList "/c start-service.bat" -WorkingDirectory $WorkingDirectory -NoNewWindow
+        Start-Process -FilePath "cmd.exe" -ArgumentList "/c $BatchPath" -WorkingDirectory $WorkingDirectory
     }
 }
 
 Write-Host ""
 Write-Host "The application should be accessible at: http://$IPAddress`:3001" -ForegroundColor Cyan
 Write-Host "If the service failed to start, check the logs in:" -ForegroundColor Cyan
-Write-Host "  - $WorkingDirectory\service-output.log"
-Write-Host "  - $WorkingDirectory\service-error.log"
+Write-Host "  - $WorkingDirectory\service-log.txt" -ForegroundColor White
+Write-Host "  - $WorkingDirectory\service-output.log" -ForegroundColor White
+Write-Host "  - $WorkingDirectory\service-error.log" -ForegroundColor White
 
 # Add helpful tips
 Write-Host ""
@@ -132,10 +212,24 @@ Write-Host "2. Check that all dependencies are installed (run 'npm install' in b
 Write-Host "3. Make sure to build the frontend before starting the service (run 'npm run build' in the project root)"
 Write-Host "4. Verify that port 3001 is not being used by another application"
 Write-Host "5. Ensure the Windows Firewall allows connections to port 3001"
+Write-Host "6. Check if the current user has permissions to run services"
+Write-Host "7. Try running the server directly with 'node server.js' to see if there are any immediate errors"
+
 Write-Host ""
 Write-Host "Quick Commands:" -ForegroundColor Yellow
 Write-Host "- To start the service manually: Start-Service $ServiceName" -ForegroundColor White
 Write-Host "- To stop the service: Stop-Service $ServiceName" -ForegroundColor White
 Write-Host "- To check service status: Get-Service $ServiceName" -ForegroundColor White
+Write-Host "- To view the Windows event logs for the service: Get-EventLog -LogName System -Source Service* | Where-Object {`$_.Message -like '*$ServiceName*'} | Select-Object -First 10" -ForegroundColor White
 Write-Host ""
 Write-Host "You can also manage the service through the Windows Services console (services.msc)" -ForegroundColor White
+
+# If the service failed to start, suggest running directly
+if ((Get-Service -Name $ServiceName -ErrorAction SilentlyContinue).Status -ne "Running") {
+    Write-Host ""
+    Write-Host "IMPORTANT: Since the service failed to start, try running the server directly:" -ForegroundColor Red
+    Write-Host "1. Open a Command Prompt as Administrator" -ForegroundColor White
+    Write-Host "2. Navigate to: $WorkingDirectory" -ForegroundColor White
+    Write-Host "3. Run: node server.js" -ForegroundColor White
+    Write-Host "This will show you any immediate startup errors that might be preventing the service from running." -ForegroundColor White
+}

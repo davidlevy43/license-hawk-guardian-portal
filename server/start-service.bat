@@ -12,8 +12,14 @@ if %ERRORLEVEL% neq 0 (
     echo Error: Node.js is not installed or not in the PATH.
     echo Please install Node.js and try again.
     echo [%date% %time%] Error: Node.js not found >> service-log.txt
+    pause
     exit /b 1
 )
+
+REM Display Node.js version for debugging
+echo Node.js version:
+node --version
+echo.
 
 REM Check for the dist folder at the parent directory
 if not exist "..\dist" (
@@ -28,6 +34,12 @@ if not exist "..\dist" (
         echo.
         echo Running build-frontend.bat...
         call build-frontend.bat
+        if %ERRORLEVEL% neq 0 (
+            echo [%date% %time%] Error: Frontend build failed >> service-log.txt
+            echo Failed to build frontend. Please check the errors above.
+            pause
+            exit /b 1
+        )
         echo.
         echo ===================================================
     ) else (
@@ -35,6 +47,27 @@ if not exist "..\dist" (
         echo Continuing without building the frontend.
         echo The server API will run, but the web interface will not be available.
         echo [%date% %time%] Warning: dist folder not found, user chose not to build >> service-log.txt
+    )
+)
+
+REM Verify server.js exists
+if not exist "server.js" (
+    echo Error: server.js not found in current directory!
+    echo Current directory: %cd%
+    echo [%date% %time%] Error: server.js not found >> service-log.txt
+    pause
+    exit /b 1
+)
+
+REM Make sure the required node_modules are installed
+if not exist "node_modules" (
+    echo Warning: node_modules folder not found, running npm install...
+    call npm install
+    if %ERRORLEVEL% neq 0 (
+        echo Error: Failed to install dependencies.
+        echo [%date% %time%] Error: npm install failed >> service-log.txt
+        pause
+        exit /b 1
     )
 )
 
@@ -57,9 +90,18 @@ echo ===================================================
 echo Starting License Manager server on port 3001
 echo ===================================================
 
+REM Create an error log file if it doesn't exist
+if not exist service-error.log type nul > service-error.log
+if not exist service-output.log type nul > service-output.log
+
 REM Start the server with error logging
+echo [%date% %time%] Starting server process >> service-log.txt
 node server.js >> service-output.log 2>> service-error.log
 
-REM This line should never be reached unless the server exits
+REM This line should only be reached if the server exits
 echo [%date% %time%] Server exited with code %ERRORLEVEL% >> service-log.txt
+echo Server process has exited. Check the log files for details.
+echo.
+echo Press any key to exit...
+pause > nul
 exit /b %ERRORLEVEL%

@@ -70,11 +70,38 @@ If you encounter any issues:
 2. Verify Node.js installation:
    - Open Command Prompt and run `node --version` to check that Node.js is installed
    - If not found, download and install Node.js from [https://nodejs.org/](https://nodejs.org/)
+   - Make sure the Node.js path is in your system PATH environment variable
    - Restart the server after installation
 
 3. Check for dependency issues:
    - Navigate to project folder and run `npm install` in both the root and server directories
    - Look for any error messages during installation
+
+4. Try running the server directly (not as a service):
+   - Navigate to the server directory in Command Prompt
+   - Run `node server.js` to see any immediate startup errors
+   - If there are errors, fix them before trying to run as a service
+
+#### Service Won't Start ("Windows could not start the License Manager Application service")
+
+This is often caused by:
+
+1. **Node.js not found**: Make sure Node.js is in the system PATH for the SYSTEM account, not just your user account.
+2. **Permission issues**: Services run under the LocalSystem account by default, which may not have the same permissions as your user account.
+3. **Port conflicts**: Another application might be using port 3001.
+4. **Path issues**: The service may be looking for files in the wrong location.
+
+Solutions:
+
+1. Make sure you've run the install script (`install-as-service.ps1`) as Administrator.
+2. In `services.msc`, check the service properties:
+   - Ensure the "Path to executable" is correctly pointing to nssm.exe
+   - Check the "Log On" tab to ensure it's set to "Local System Account"
+3. Configure Windows Firewall to allow the application (port 3001)
+4. Check the Windows Event Viewer for detailed error messages:
+   - Open Event Viewer (eventvwr.msc)
+   - Go to Windows Logs > System
+   - Look for Service Control Manager entries related to LicenseManagerService
 
 #### Firewall Issues
 
@@ -120,3 +147,34 @@ If you prefer not to use the Windows service, you can start the server manually:
 4. Keep the Command Prompt window open while using the application
 
 Note: This method requires the Command Prompt window to remain open.
+
+### 7. Run Directly Using the Batch File
+
+If the service won't start, you can try running the application directly:
+
+1. Open Command Prompt as Administrator
+2. Navigate to the server folder
+3. Run the `start-service.bat` file:
+   ```
+   start-service.bat
+   ```
+4. This will run outside of the service system and display any errors directly
+
+### 8. Common Error Messages
+
+#### "Windows could not start the License Manager Application service"
+
+This generic Windows error usually means:
+- The service executable (nssm.exe) couldn't be found
+- The batch file path is incorrect
+- Node.js is not accessible to the SYSTEM account
+- A required dependency is missing
+
+Check the Windows Event Logs (Event Viewer) for more specific error messages.
+
+#### "The service did not return an error"
+
+This typically means the service started but then crashed immediately. Check:
+- The service-error.log file for JavaScript errors
+- Make sure all required environment variables are set
+- Verify that all required files exist in the expected locations
