@@ -6,12 +6,15 @@ const getApiUrl = () => {
   // Check if a custom server URL has been set in sessionStorage
   const customApiUrl = sessionStorage.getItem('api_server_url');
   if (customApiUrl) {
+    console.log("Using custom API URL from sessionStorage:", customApiUrl);
     return customApiUrl;
   }
   
   // Use the current hostname with port 3001 for the API
   const currentHost = window.location.hostname;
-  return `http://${currentHost}:3001`;
+  const defaultUrl = `http://${currentHost}:3001`;
+  console.log("Using default API URL:", defaultUrl);
+  return defaultUrl;
 };
 
 // The base URL for your API server
@@ -19,6 +22,8 @@ export let API_URL = getApiUrl();
 
 // Function to update the API URL
 export const updateApiUrl = async (newUrl: string) => {
+  console.log("Updating API URL to:", newUrl);
+  
   // Ensure URL has correct format
   if (!newUrl.includes('://')) {
     newUrl = `http://${newUrl}`;
@@ -28,8 +33,13 @@ export const updateApiUrl = async (newUrl: string) => {
   newUrl = newUrl.endsWith('/') ? newUrl.slice(0, -1) : newUrl;
   
   // Remove /api, /login or other paths from the URL if they exist
-  const urlObj = new URL(newUrl);
-  newUrl = `${urlObj.protocol}//${urlObj.host}`;
+  try {
+    const urlObj = new URL(newUrl);
+    newUrl = `${urlObj.protocol}//${urlObj.host}`;
+  } catch (error) {
+    console.error("Invalid URL format:", error);
+    throw new Error("Invalid URL format. Please enter a valid URL.");
+  }
   
   // Store the URL for display purposes
   sessionStorage.setItem('api_server_url', newUrl);
@@ -53,15 +63,17 @@ export async function checkServerAvailability() {
     const response = await fetch(`${API_URL}/api/health`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(5000) // Increase timeout to 5 seconds
+      signal: AbortSignal.timeout(8000) // Increase timeout to 8 seconds
     });
+    
+    console.log("Server response status:", response.status);
     
     // Check if response is valid JSON
     const contentType = response.headers.get("content-type");
     if (contentType && contentType.includes("application/json")) {
       return response.ok;
     } else {
-      console.error('Server returned non-JSON response');
+      console.error('Server returned non-JSON response:', contentType);
       return false;
     }
   } catch (error) {

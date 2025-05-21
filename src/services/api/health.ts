@@ -9,15 +9,17 @@ export const HealthAPI = {
       const response = await fetch(`${API_URL}/api/health`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(5000)
+        signal: AbortSignal.timeout(8000) // Increase timeout to 8 seconds
       });
+      
+      console.log("Health check response status:", response.status);
       
       // Check if response is valid JSON
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
         return response.ok;
       } else {
-        console.error('Server returned non-JSON response');
+        console.error('Server returned non-JSON response:', contentType);
         return false;
       }
     } catch (error) {

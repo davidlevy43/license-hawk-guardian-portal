@@ -44,7 +44,9 @@ const SettingsPage: React.FC = () => {
       try {
         const isConnected = await HealthAPI.checkServer();
         setServerStatus(isConnected);
+        console.log("Server connection check result:", isConnected);
       } catch (error) {
+        console.error("Error checking server connection:", error);
         setServerStatus(false);
       }
     };
@@ -56,6 +58,7 @@ const SettingsPage: React.FC = () => {
     setIsLoading(true);
     setConnectionError(null);
     try {
+      console.log("Attempting to connect to:", apiUrl);
       // Try to connect to the new API URL
       await updateApiUrl(apiUrl);
       toast.success("Server connection successful! Settings saved.");
@@ -64,6 +67,7 @@ const SettingsPage: React.FC = () => {
       // Redirect to login page
       setTimeout(() => navigate("/login"), 1000);
     } catch (error: any) {
+      console.error("Connection error:", error);
       setConnectionError(`Could not connect to the server at ${apiUrl}`);
       setServerStatus(false);
       toast.error(`Connection failed: ${error.message}`);
