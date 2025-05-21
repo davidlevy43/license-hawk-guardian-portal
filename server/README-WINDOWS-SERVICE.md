@@ -1,15 +1,33 @@
 
-# Running License Manager as a Windows Server 2022 Service
+# Running License Manager as a Windows Server Service
 
 This guide explains how to run the License Manager application as a Windows service, allowing users to access it through the local network without internet access.
 
-## Prerequisites
+## Automatic Installation (Recommended)
 
-1. Windows Server 2022
-2. Node.js installed on the server
-3. NSSM (Non-Sucking Service Manager) - download from [https://nssm.cc/download](https://nssm.cc/download)
+For a complete automated setup, run the following script as Administrator:
 
-## Installation Steps
+1. Open PowerShell as Administrator
+2. Navigate to the `server` folder
+3. Run the installation script:
+   ```
+   .\install-service-auto.ps1
+   ```
+
+This script will:
+- Check and install Node.js if needed
+- Download NSSM if not present
+- Install all dependencies
+- Build the frontend
+- Create and configure the Windows service
+- Configure the Windows Firewall
+- Start the service automatically
+
+The service will be configured to start automatically when the server boots.
+
+## Manual Installation
+
+If you prefer to install the service manually or the automatic installation fails, follow these steps:
 
 ### 1. Prepare the application
 
@@ -79,7 +97,7 @@ If you encounter any issues:
 
 4. Try running the server directly (not as a service):
    - Navigate to the server directory in Command Prompt
-   - Run `node server.js` to see any immediate startup errors
+   - Run `start-service.bat` or `node server.js` to see any immediate startup errors
    - If there are errors, fix them before trying to run as a service
 
 #### Service Won't Start ("Windows could not start the License Manager Application service")
@@ -93,7 +111,7 @@ This is often caused by:
 
 Solutions:
 
-1. Make sure you've run the install script (`install-as-service.ps1`) as Administrator.
+1. Make sure you've run the install script as Administrator.
 2. In `services.msc`, check the service properties:
    - Ensure the "Path to executable" is correctly pointing to nssm.exe
    - Check the "Log On" tab to ensure it's set to "Local System Account"
@@ -112,17 +130,6 @@ Solutions:
    - Select "TCP" and specify port "3001"
    - Allow the connection and complete the wizard
 
-#### Service Installation Issues
-
-1. If NSSM fails to install or start the service:
-   - Check that you're running PowerShell as Administrator
-   - Manually install the service by running:
-     ```
-     nssm install LicenseManagerService "path\to\start-service.bat"
-     nssm set LicenseManagerService AppDirectory "path\to\server\directory"
-     nssm start LicenseManagerService
-     ```
-
 #### Cannot Access From Other Computers
 
 1. Verify the IP address:
@@ -133,48 +140,3 @@ Solutions:
 2. Test local access first:
    - On the server itself, open a browser and go to `http://localhost:3001`
    - If this works but network access doesn't, it's likely a network/firewall issue
-
-### 6. Manually Starting the Server (Alternative Method)
-
-If you prefer not to use the Windows service, you can start the server manually:
-
-1. Open Command Prompt as Administrator
-2. Navigate to the server folder
-3. Run the following command:
-   ```
-   node server.js
-   ```
-4. Keep the Command Prompt window open while using the application
-
-Note: This method requires the Command Prompt window to remain open.
-
-### 7. Run Directly Using the Batch File
-
-If the service won't start, you can try running the application directly:
-
-1. Open Command Prompt as Administrator
-2. Navigate to the server folder
-3. Run the `start-service.bat` file:
-   ```
-   start-service.bat
-   ```
-4. This will run outside of the service system and display any errors directly
-
-### 8. Common Error Messages
-
-#### "Windows could not start the License Manager Application service"
-
-This generic Windows error usually means:
-- The service executable (nssm.exe) couldn't be found
-- The batch file path is incorrect
-- Node.js is not accessible to the SYSTEM account
-- A required dependency is missing
-
-Check the Windows Event Logs (Event Viewer) for more specific error messages.
-
-#### "The service did not return an error"
-
-This typically means the service started but then crashed immediately. Check:
-- The service-error.log file for JavaScript errors
-- Make sure all required environment variables are set
-- Verify that all required files exist in the expected locations
