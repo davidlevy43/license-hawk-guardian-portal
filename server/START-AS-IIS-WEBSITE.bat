@@ -56,6 +56,53 @@ if not exist "%ProgramFiles%\IIS\Rewrite\rewrite.dll" (
     )
 )
 
+REM Manually fix web.config file before installation
+echo Ensuring web.config file is properly formatted...
+(
+echo ^<?xml version="1.0" encoding="UTF-8"?^>
+echo ^<configuration^>
+echo   ^<system.webServer^>
+echo     ^<handlers^>
+echo       ^<add name="iisnode" path="server.js" verb="*" modules="iisnode" /^>
+echo     ^</handlers^>
+echo     ^<rewrite^>
+echo       ^<rules^>
+echo         ^<rule name="API"^>
+echo           ^<match url="api/(.*)" /^>
+echo           ^<action type="Rewrite" url="server.js" /^>
+echo         ^</rule^>
+echo         ^<rule name="StaticContent"^>
+echo           ^<match url="(.*)" /^>
+echo           ^<action type="Rewrite" url="../dist/{R:1}" /^>
+echo           ^<conditions^>
+echo             ^<add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" /^>
+echo           ^</conditions^>
+echo         ^</rule^>
+echo         ^<rule name="SPA"^>
+echo           ^<match url=".*" /^>
+echo           ^<conditions^>
+echo             ^<add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" /^>
+echo             ^<add input="{REQUEST_URI}" pattern="^/api" negate="true" /^>
+echo           ^</conditions^>
+echo           ^<action type="Rewrite" url="../dist/index.html" /^>
+echo         ^</rule^>
+echo       ^</rules^>
+echo     ^</rewrite^>
+echo     ^<iisnode nodeProcessCommandLine="node.exe" watchedFiles="*.js;iisnode.yml" loggingEnabled="true" logDirectory="iisnode" /^>
+echo     ^<staticContent^>
+echo       ^<mimeMap fileExtension=".json" mimeType="application/json" /^>
+echo     ^</staticContent^>
+echo   ^</system.webServer^>
+echo ^</configuration^>
+) > web.config
+
+REM Set proper permissions immediately
+echo Setting proper permissions on web.config...
+icacls web.config /grant "IIS_IUSRS:(R)" /T
+icacls web.config /grant "NETWORK SERVICE:(R)" /T
+icacls web.config /grant "Everyone:(R)" /T
+echo Web.config has been properly formatted and permissions set.
+
 call install-iis-website.bat
 
 echo ===================================================
