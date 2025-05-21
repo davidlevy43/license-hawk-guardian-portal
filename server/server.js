@@ -103,27 +103,36 @@ function initializeDatabase() {
       
       console.log('Licenses table initialized');
       
-      // Once both tables are created, check for admin user
-      checkAndCreateAdminUser();
+      // Once both tables are created, check for admin users
+      checkAndCreateAdminUsers();
     });
   });
 }
 
-// Check if admin user exists, if not create one
-function checkAndCreateAdminUser() {
-  db.get('SELECT * FROM users WHERE role = ?', ['admin'], (err, row) => {
+// Check if admin users exist, if not create them
+function checkAndCreateAdminUsers() {
+  // First check for the default admin user
+  checkAndCreateSpecificAdmin('admin', 'admin@example.com', 'admin123');
+  
+  // Then check for the additional admin user
+  checkAndCreateSpecificAdmin('david', 'david@rotem.com', 'admin123');
+}
+
+// Helper function to check and create a specific admin user
+function checkAndCreateSpecificAdmin(username, email, password) {
+  db.get('SELECT * FROM users WHERE email = ?', [email], (err, row) => {
     if (err) {
-      console.error('Error checking for admin user:', err.message);
+      console.error(`Error checking for user ${email}:`, err.message);
       return;
     }
     
     if (!row) {
-      // Create default admin user
+      // Create admin user
       const adminUser = {
         id: uuidv4(),
-        username: 'admin',
-        email: 'admin@example.com',
-        password: 'admin123', // In production, this should be hashed!
+        username: username,
+        email: email,
+        password: password,
         role: 'admin',
         createdAt: new Date().toISOString()
       };
@@ -133,14 +142,14 @@ function checkAndCreateAdminUser() {
         [adminUser.id, adminUser.username, adminUser.email, adminUser.password, adminUser.role, adminUser.createdAt],
         (err) => {
           if (err) {
-            console.error('Error creating admin user:', err.message);
+            console.error(`Error creating user ${email}:`, err.message);
           } else {
-            console.log('Default admin user created');
+            console.log(`Admin user ${email} created`);
           }
         }
       );
     } else {
-      console.log('Admin user already exists');
+      console.log(`User ${email} already exists`);
     }
   });
 }

@@ -108,8 +108,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const userDetails = await userDetailsResponse.json();
 
-      // Fix for default admin user - if this is the default admin, accept admin123
-      if (email.toLowerCase() === "admin@example.com" && password === "admin123") {
+      // Fix for default admin users - if this is one of our default admins, accept admin123
+      if ((email.toLowerCase() === "admin@example.com" || email.toLowerCase() === "david@rotem.com") 
+          && password === "admin123") {
         // Store authentication info in sessionStorage
         sessionStorage.setItem("authToken", "secure-token"); 
         sessionStorage.setItem("userId", user.id);
