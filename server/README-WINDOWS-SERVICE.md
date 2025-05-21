@@ -60,21 +60,52 @@ You can manage the License Manager service using the Windows Services console:
 
 If you encounter any issues:
 
+#### Server Won't Start
+
 1. Check the log files in the `server` folder:
+   - `service-log.txt` - Basic service startup information
    - `service-output.log` - Standard output from the application
    - `service-error.log` - Error logs from the application
 
-2. Make sure port 3001 is allowed through the Windows Firewall:
+2. Verify Node.js installation:
+   - Open Command Prompt and run `node --version` to check that Node.js is installed
+   - If not found, download and install Node.js from [https://nodejs.org/](https://nodejs.org/)
+   - Restart the server after installation
+
+3. Check for dependency issues:
+   - Navigate to project folder and run `npm install` in both the root and server directories
+   - Look for any error messages during installation
+
+#### Firewall Issues
+
+1. Make sure port 3001 is allowed through the Windows Firewall:
    - Open Windows Defender Firewall with Advanced Security
    - Select "Inbound Rules" and click "New Rule..."
    - Select "Port" and click Next
    - Select "TCP" and specify port "3001"
    - Allow the connection and complete the wizard
 
-3. Verify that the service is running:
-   - Open Task Manager
-   - Go to the "Details" tab
-   - Check if `node.exe` processes are running
+#### Service Installation Issues
+
+1. If NSSM fails to install or start the service:
+   - Check that you're running PowerShell as Administrator
+   - Manually install the service by running:
+     ```
+     nssm install LicenseManagerService "path\to\start-service.bat"
+     nssm set LicenseManagerService AppDirectory "path\to\server\directory"
+     nssm start LicenseManagerService
+     ```
+
+#### Cannot Access From Other Computers
+
+1. Verify the IP address:
+   - Open Command Prompt on the server and type `ipconfig`
+   - Look for the IPv4 Address under your active network adapter
+   - Use this IP to access the application (e.g., `http://192.168.1.100:3001`)
+
+2. Test local access first:
+   - On the server itself, open a browser and go to `http://localhost:3001`
+   - If this works but network access doesn't, it's likely a network/firewall issue
 
 ### 6. Manually Starting the Server (Alternative Method)
 
