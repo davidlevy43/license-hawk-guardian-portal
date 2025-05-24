@@ -78,6 +78,19 @@ async function initializeDatabase() {
     
     console.log('Users table initialized');
     
+    // Check if password column exists and add it if missing
+    const checkPasswordColumn = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'users' AND column_name = 'password'
+    `);
+    
+    if (checkPasswordColumn.rows.length === 0) {
+      console.log('Adding missing password column to users table...');
+      await pool.query(`ALTER TABLE users ADD COLUMN password VARCHAR(255) NOT NULL DEFAULT 'default123'`);
+      console.log('Password column added successfully');
+    }
+    
     await pool.query(`
       CREATE TABLE IF NOT EXISTS licenses (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
