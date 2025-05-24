@@ -1,8 +1,7 @@
-
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
@@ -44,114 +43,103 @@ if (fs.existsSync(distPath)) {
   console.log('To serve the frontend, build the React app using "npm run build" or "yarn build"');
 }
 
-// Initialize SQLite database
-const dbPath = path.join(__dirname, 'database.sqlite');
-const db = new sqlite3.Database(dbPath, (err) => {
+// Initialize PostgreSQL connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: false // For local development
+});
+
+// Test database connection
+pool.connect((err, client, release) => {
   if (err) {
-    console.error('Error connecting to SQLite database:', err.message);
+    console.error('Error connecting to PostgreSQL database:', err.message);
+    console.error('DATABASE_URL:', process.env.DATABASE_URL);
   } else {
-    console.log('Connected to SQLite database');
+    console.log('Connected to PostgreSQL database');
+    release();
     initializeDatabase();
   }
 });
 
 // Initialize database tables
-function initializeDatabase() {
-  // Create Users table first and wait for completion
-  db.run(`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      username TEXT NOT NULL,
-      email TEXT NOT NULL UNIQUE,
-      password TEXT NOT NULL,
-      role TEXT NOT NULL,
-      createdAt TEXT NOT NULL
-    )
-  `, (err) => {
-    if (err) {
-      console.error('Error creating users table:', err.message);
-      return;
-    }
+async function initializeDatabase() {
+  try {
+    // Check if tables exist and create them if they don't
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        username VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        role VARCHAR(50) NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
     
     console.log('Users table initialized');
     
-    // Now create Licenses table and wait for completion
-    db.run(`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS licenses (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        type TEXT NOT NULL,
-        department TEXT NOT NULL,
-        supplier TEXT NOT NULL,
-        startDate TEXT NOT NULL,
-        renewalDate TEXT NOT NULL,
-        monthlyCost REAL NOT NULL,
-        paymentMethod TEXT NOT NULL,
-        serviceOwner TEXT NOT NULL,
-        serviceOwnerEmail TEXT,
-        status TEXT NOT NULL,
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(255) NOT NULL,
+        type VARCHAR(100) NOT NULL,
+        department VARCHAR(255) NOT NULL,
+        supplier VARCHAR(255) NOT NULL,
+        start_date DATE NOT NULL,
+        renewal_date DATE NOT NULL,
+        monthly_cost DECIMAL(10,2) NOT NULL,
+        payment_method VARCHAR(100) NOT NULL,
+        service_owner VARCHAR(255) NOT NULL,
+        service_owner_email VARCHAR(255),
+        status VARCHAR(50) NOT NULL,
         notes TEXT,
-        createdAt TEXT NOT NULL,
-        updatedAt TEXT NOT NULL,
-        creditCardDigits TEXT
+        credit_card_digits VARCHAR(4),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
-    `, (err) => {
-      if (err) {
-        console.error('Error creating licenses table:', err.message);
-        return;
-      }
-      
-      console.log('Licenses table initialized');
-      
-      // Once both tables are created, check for admin users
-      checkAndCreateAdminUsers();
-    });
-  });
+    `);
+    
+    console.log('Licenses table initialized');
+    
+    // Check for admin users
+    await checkAndCreateAdminUsers();
+    
+  } catch (error) {
+    console.error('Error initializing database:', error);
+  }
 }
 
 // Check if admin users exist, if not create them
-function checkAndCreateAdminUsers() {
-  // First check for the default admin user
-  checkAndCreateSpecificAdmin('admin', 'admin@example.com', 'admin123');
-  
-  // Then check for the additional admin user
-  checkAndCreateSpecificAdmin('david', 'david@rotem.com', 'admin123');
+async function checkAndCreateAdminUsers() {
+  try {
+    // Check for the default admin user
+    await checkAndCreateSpecificAdmin('admin', 'admin@example.com', 'admin123');
+    
+    // Check for the additional admin user
+    await checkAndCreateSpecificAdmin('david', 'david@rotem.com', 'admin123');
+  } catch (error) {
+    console.error('Error creating admin users:', error);
+  }
 }
 
 // Helper function to check and create a specific admin user
-function checkAndCreateSpecificAdmin(username, email, password) {
-  db.get('SELECT * FROM users WHERE email = ?', [email], (err, row) => {
-    if (err) {
-      console.error(`Error checking for user ${email}:`, err.message);
-      return;
-    }
+async function checkAndCreateSpecificAdmin(username, email, password) {
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     
-    if (!row) {
+    if (result.rows.length === 0) {
       // Create admin user
-      const adminUser = {
-        id: uuidv4(),
-        username: username,
-        email: email,
-        password: password,
-        role: 'admin',
-        createdAt: new Date().toISOString()
-      };
-      
-      db.run(
-        'INSERT INTO users (id, username, email, password, role, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
-        [adminUser.id, adminUser.username, adminUser.email, adminUser.password, adminUser.role, adminUser.createdAt],
-        (err) => {
-          if (err) {
-            console.error(`Error creating user ${email}:`, err.message);
-          } else {
-            console.log(`Admin user ${email} created`);
-          }
-        }
+      await pool.query(
+        'INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, $4)',
+        [username, email, password, 'admin']
       );
+      console.log(`Admin user ${email} created`);
     } else {
       console.log(`User ${email} already exists`);
     }
-  });
+  } catch (error) {
+    console.error(`Error creating user ${email}:`, error.message);
+  }
 }
 
 // Simple health check endpoint
@@ -168,48 +156,44 @@ app.get('/api/health', (req, res) => {
 });
 
 // User API endpoints
-app.get('/api/users', (req, res) => {
-  db.all('SELECT id, username, email, role, createdAt FROM users', [], (err, rows) => {
-    if (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Failed to fetch users' });
-      return;
-    }
+app.get('/api/users', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, username, email, role, created_at FROM users');
     
-    // Format dates and parse JSON fields if needed
-    const formattedRows = rows.map(row => ({
+    const formattedRows = result.rows.map(row => ({
       ...row,
-      createdAt: new Date(row.createdAt)
+      createdAt: row.created_at
     }));
     
     res.json(formattedRows);
-  });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
 });
 
-app.get('/api/users/:id', (req, res) => {
-  db.get('SELECT id, username, email, role, createdAt FROM users WHERE id = ?', [req.params.id], (err, row) => {
-    if (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Failed to fetch user' });
-      return;
-    }
+app.get('/api/users/:id', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, username, email, role, created_at FROM users WHERE id = $1', [req.params.id]);
     
-    if (!row) {
+    if (result.rows.length === 0) {
       res.status(404).json({ error: 'User not found' });
       return;
     }
     
-    // Format dates and parse JSON fields
     const formattedUser = {
-      ...row,
-      createdAt: new Date(row.createdAt)
+      ...result.rows[0],
+      createdAt: result.rows[0].created_at
     };
     
     res.json(formattedUser);
-  });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch user' });
+  }
 });
 
-app.post('/api/users', (req, res) => {
+app.post('/api/users', async (req, res) => {
   const { username, email, role, password = 'default123' } = req.body;
   
   if (!username || !email || !role) {
@@ -217,38 +201,29 @@ app.post('/api/users', (req, res) => {
     return;
   }
   
-  const newUser = {
-    id: uuidv4(),
-    username,
-    email,
-    role,
-    password,
-    createdAt: new Date().toISOString()
-  };
-  
-  db.run(
-    'INSERT INTO users (id, username, email, role, password, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
-    [newUser.id, newUser.username, newUser.email, newUser.role, newUser.password, newUser.createdAt],
-    function(err) {
-      if (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Failed to create user' });
-        return;
-      }
-      
-      // Format createdAt back to Date for the response
-      const responseUser = {
-        ...newUser,
-        createdAt: new Date(newUser.createdAt),
-        password: undefined // Don't return the password
-      };
-      
-      res.status(201).json(responseUser);
+  try {
+    const result = await pool.query(
+      'INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, username, email, role, created_at',
+      [username, email, password, role]
+    );
+    
+    const responseUser = {
+      ...result.rows[0],
+      createdAt: result.rows[0].created_at
+    };
+    
+    res.status(201).json(responseUser);
+  } catch (error) {
+    console.error(error);
+    if (error.code === '23505') { // Unique violation
+      res.status(400).json({ error: 'Email already exists' });
+    } else {
+      res.status(500).json({ error: 'Failed to create user' });
     }
-  );
+  }
 });
 
-app.patch('/api/users/:id', (req, res) => {
+app.patch('/api/users/:id', async (req, res) => {
   const allowedFields = ['username', 'email', 'role'];
   const updates = {};
   
@@ -263,115 +238,103 @@ app.patch('/api/users/:id', (req, res) => {
     return;
   }
   
-  // Construct SQL query
-  let query = 'UPDATE users SET ';
-  const values = [];
-  
-  Object.entries(updates).forEach(([key, value], index, array) => {
-    query += `${key} = ?${index < array.length - 1 ? ', ' : ''}`;
-    values.push(value);
-  });
-  
-  query += ' WHERE id = ?';
-  values.push(req.params.id);
-  
-  db.run(query, values, function(err) {
-    if (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Failed to update user' });
-      return;
-    }
+  try {
+    // Construct SQL query
+    const setClause = Object.keys(updates).map((key, index) => `${key} = $${index + 2}`).join(', ');
+    const values = [req.params.id, ...Object.values(updates)];
     
-    if (this.changes === 0) {
+    const result = await pool.query(
+      `UPDATE users SET ${setClause} WHERE id = $1 RETURNING id, username, email, role, created_at`,
+      values
+    );
+    
+    if (result.rows.length === 0) {
       res.status(404).json({ error: 'User not found' });
       return;
     }
     
-    // Get the updated user
-    db.get('SELECT id, username, email, role, createdAt FROM users WHERE id = ?', [req.params.id], (err, row) => {
-      if (err) {
-        console.error(err);
-        res.status(500).json({ error: 'User updated but failed to fetch updated data' });
-        return;
-      }
-      
-      // Format dates
-      const formattedUser = {
-        ...row,
-        createdAt: new Date(row.createdAt)
-      };
-      
-      res.json(formattedUser);
-    });
-  });
+    const formattedUser = {
+      ...result.rows[0],
+      createdAt: result.rows[0].created_at
+    };
+    
+    res.json(formattedUser);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to update user' });
+  }
 });
 
-app.delete('/api/users/:id', (req, res) => {
-  db.run('DELETE FROM users WHERE id = ?', [req.params.id], function(err) {
-    if (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Failed to delete user' });
-      return;
-    }
+app.delete('/api/users/:id', async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
     
-    if (this.changes === 0) {
+    if (result.rowCount === 0) {
       res.status(404).json({ error: 'User not found' });
       return;
     }
     
     res.status(204).end();
-  });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
 });
 
 // License API endpoints
-app.get('/api/licenses', (req, res) => {
-  db.all('SELECT * FROM licenses', [], (err, rows) => {
-    if (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Failed to fetch licenses' });
-      return;
-    }
+app.get('/api/licenses', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM licenses');
     
-    // Format dates and parse JSON fields
-    const formattedRows = rows.map(row => ({
+    const formattedRows = result.rows.map(row => ({
       ...row,
-      startDate: new Date(row.startDate),
-      renewalDate: new Date(row.renewalDate),
-      createdAt: new Date(row.createdAt),
-      updatedAt: new Date(row.updatedAt)
+      startDate: row.start_date,
+      renewalDate: row.renewal_date,
+      monthlyCost: parseFloat(row.monthly_cost),
+      serviceOwner: row.service_owner,
+      serviceOwnerEmail: row.service_owner_email,
+      creditCardDigits: row.credit_card_digits,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
     }));
     
     res.json(formattedRows);
-  });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch licenses' });
+  }
 });
 
-app.get('/api/licenses/:id', (req, res) => {
-  db.get('SELECT * FROM licenses WHERE id = ?', [req.params.id], (err, row) => {
-    if (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Failed to fetch license' });
-      return;
-    }
+app.get('/api/licenses/:id', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM licenses WHERE id = $1', [req.params.id]);
     
-    if (!row) {
+    if (result.rows.length === 0) {
       res.status(404).json({ error: 'License not found' });
       return;
     }
     
-    // Format dates and parse JSON fields
+    const row = result.rows[0];
     const formattedLicense = {
       ...row,
-      startDate: new Date(row.startDate),
-      renewalDate: new Date(row.renewalDate),
-      createdAt: new Date(row.createdAt),
-      updatedAt: new Date(row.updatedAt)
+      startDate: row.start_date,
+      renewalDate: row.renewal_date,
+      monthlyCost: parseFloat(row.monthly_cost),
+      serviceOwner: row.service_owner,
+      serviceOwnerEmail: row.service_owner_email,
+      creditCardDigits: row.credit_card_digits,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
     };
     
     res.json(formattedLicense);
-  });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch license' });
+  }
 });
 
-app.post('/api/licenses', (req, res) => {
+app.post('/api/licenses', async (req, res) => {
   const {
     name, type, department, supplier,
     startDate, renewalDate, monthlyCost,
@@ -385,79 +348,65 @@ app.post('/api/licenses', (req, res) => {
     return;
   }
   
-  const now = new Date().toISOString();
-  
-  const newLicense = {
-    id: uuidv4(),
-    name,
-    type,
-    department,
-    supplier,
-    startDate: new Date(startDate).toISOString(),
-    renewalDate: new Date(renewalDate).toISOString(),
-    monthlyCost,
-    paymentMethod,
-    serviceOwner,
-    serviceOwnerEmail: serviceOwnerEmail || '',
-    status,
-    notes: notes || '',
-    createdAt: now,
-    updatedAt: now,
-    creditCardDigits: creditCardDigits || null
-  };
-  
-  db.run(
-    `INSERT INTO licenses (
-      id, name, type, department, supplier,
-      startDate, renewalDate, monthlyCost,
-      paymentMethod, serviceOwner, serviceOwnerEmail,
-      status, notes, createdAt, updatedAt, creditCardDigits
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      newLicense.id, newLicense.name, newLicense.type, newLicense.department, newLicense.supplier,
-      newLicense.startDate, newLicense.renewalDate, newLicense.monthlyCost,
-      newLicense.paymentMethod, newLicense.serviceOwner, newLicense.serviceOwnerEmail,
-      newLicense.status, newLicense.notes, newLicense.createdAt, newLicense.updatedAt, newLicense.creditCardDigits
-    ],
-    function(err) {
-      if (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Failed to create license' });
-        return;
-      }
-      
-      // Format dates back to Date objects for the response
-      const responseLicense = {
-        ...newLicense,
-        startDate: new Date(newLicense.startDate),
-        renewalDate: new Date(newLicense.renewalDate),
-        createdAt: new Date(newLicense.createdAt),
-        updatedAt: new Date(newLicense.updatedAt)
-      };
-      
-      res.status(201).json(responseLicense);
-    }
-  );
+  try {
+    const result = await pool.query(
+      `INSERT INTO licenses (
+        name, type, department, supplier,
+        start_date, renewal_date, monthly_cost,
+        payment_method, service_owner, service_owner_email,
+        status, notes, credit_card_digits
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
+      RETURNING *`,
+      [
+        name, type, department, supplier,
+        startDate, renewalDate, monthlyCost,
+        paymentMethod, serviceOwner, serviceOwnerEmail || '',
+        status, notes || '', creditCardDigits || null
+      ]
+    );
+    
+    const row = result.rows[0];
+    const responseLicense = {
+      ...row,
+      startDate: row.start_date,
+      renewalDate: row.renewal_date,
+      monthlyCost: parseFloat(row.monthly_cost),
+      serviceOwner: row.service_owner,
+      serviceOwnerEmail: row.service_owner_email,
+      creditCardDigits: row.credit_card_digits,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+    
+    res.status(201).json(responseLicense);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to create license' });
+  }
 });
 
-app.patch('/api/licenses/:id', (req, res) => {
-  const allowedFields = [
-    'name', 'type', 'department', 'supplier',
-    'startDate', 'renewalDate', 'monthlyCost',
-    'paymentMethod', 'serviceOwner', 'serviceOwnerEmail',
-    'status', 'notes', 'creditCardDigits'
-  ];
+app.patch('/api/licenses/:id', async (req, res) => {
+  const allowedFields = {
+    'name': 'name',
+    'type': 'type', 
+    'department': 'department',
+    'supplier': 'supplier',
+    'startDate': 'start_date',
+    'renewalDate': 'renewal_date',
+    'monthlyCost': 'monthly_cost',
+    'paymentMethod': 'payment_method',
+    'serviceOwner': 'service_owner',
+    'serviceOwnerEmail': 'service_owner_email',
+    'status': 'status',
+    'notes': 'notes',
+    'creditCardDigits': 'credit_card_digits'
+  };
   
   const updates = {};
   
-  allowedFields.forEach(field => {
-    if (req.body[field] !== undefined) {
-      // Format dates to ISO strings for storage
-      if (field === 'startDate' || field === 'renewalDate') {
-        updates[field] = new Date(req.body[field]).toISOString();
-      } else {
-        updates[field] = req.body[field];
-      }
+  Object.entries(allowedFields).forEach(([clientField, dbField]) => {
+    if (req.body[clientField] !== undefined) {
+      updates[dbField] = req.body[clientField];
     }
   });
   
@@ -466,69 +415,56 @@ app.patch('/api/licenses/:id', (req, res) => {
     return;
   }
   
-  updates.updatedAt = new Date().toISOString();
+  updates.updated_at = new Date();
   
-  // Construct SQL query
-  let query = 'UPDATE licenses SET ';
-  const values = [];
-  
-  Object.entries(updates).forEach(([key, value], index, array) => {
-    query += `${key} = ?${index < array.length - 1 ? ', ' : ''}`;
-    values.push(value);
-  });
-  
-  query += ' WHERE id = ?';
-  values.push(req.params.id);
-  
-  db.run(query, values, function(err) {
-    if (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Failed to update license' });
-      return;
-    }
+  try {
+    const setClause = Object.keys(updates).map((key, index) => `${key} = $${index + 2}`).join(', ');
+    const values = [req.params.id, ...Object.values(updates)];
     
-    if (this.changes === 0) {
+    const result = await pool.query(
+      `UPDATE licenses SET ${setClause} WHERE id = $1 RETURNING *`,
+      values
+    );
+    
+    if (result.rows.length === 0) {
       res.status(404).json({ error: 'License not found' });
       return;
     }
     
-    // Get the updated license
-    db.get('SELECT * FROM licenses WHERE id = ?', [req.params.id], (err, row) => {
-      if (err) {
-        console.error(err);
-        res.status(500).json({ error: 'License updated but failed to fetch updated data' });
-        return;
-      }
-      
-      // Format dates
-      const formattedLicense = {
-        ...row,
-        startDate: new Date(row.startDate),
-        renewalDate: new Date(row.renewalDate),
-        createdAt: new Date(row.createdAt),
-        updatedAt: new Date(row.updatedAt)
-      };
-      
-      res.json(formattedLicense);
-    });
-  });
+    const row = result.rows[0];
+    const formattedLicense = {
+      ...row,
+      startDate: row.start_date,
+      renewalDate: row.renewal_date,
+      monthlyCost: parseFloat(row.monthly_cost),
+      serviceOwner: row.service_owner,
+      serviceOwnerEmail: row.service_owner_email,
+      creditCardDigits: row.credit_card_digits,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+    
+    res.json(formattedLicense);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to update license' });
+  }
 });
 
-app.delete('/api/licenses/:id', (req, res) => {
-  db.run('DELETE FROM licenses WHERE id = ?', [req.params.id], function(err) {
-    if (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Failed to delete license' });
-      return;
-    }
+app.delete('/api/licenses/:id', async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM licenses WHERE id = $1', [req.params.id]);
     
-    if (this.changes === 0) {
+    if (result.rowCount === 0) {
       res.status(404).json({ error: 'License not found' });
       return;
     }
     
     res.status(204).end();
-  });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to delete license' });
+  }
 });
 
 // Only serve React frontend if dist directory exists
@@ -584,6 +520,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`=== License Manager Server Started ===`);
   console.log(`Server running on port ${PORT}`);
   console.log(`Server process ID: ${process.pid}`);
+  console.log(`Database URL: ${process.env.DATABASE_URL}`);
   console.log(`\nAccess URLs:`);
   
   // Log localhost URL
@@ -606,7 +543,7 @@ app.listen(PORT, '0.0.0.0', () => {
 // Handle proper shutdown
 process.on('SIGINT', () => {
   console.log('Closing database connection');
-  db.close();
+  pool.end();
   process.exit(0);
 });
 
