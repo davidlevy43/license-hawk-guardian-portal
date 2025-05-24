@@ -29,27 +29,52 @@ interface UserFormProps {
   onCancel: () => void;
 }
 
-const userFormSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
-  email: z.string().email("Invalid email address"),
-  role: z.nativeEnum(UserRole),
-  password: z.string().min(6, "Password must be at least 6 characters").optional(),
-  confirmPassword: z.string().optional(),
-}).refine((data) => {
-  // For new users, password is required
-  if (!data.password && !data.confirmPassword) return true; // editing existing user
-  if (data.password && !data.confirmPassword) return false;
-  if (!data.password && data.confirmPassword) return false;
-  if (data.password && data.confirmPassword && data.password !== data.confirmPassword) return false;
-  return true;
-}, {
-  message: "Passwords do not match",
-  path: ["confirmPassword"],
-});
+// Create schema based on whether it's a new user or existing user
+const createUserFormSchema = (isNewUser: boolean) => {
+  const baseSchema = {
+    username: z.string().min(3, "Username must be at least 3 characters"),
+    email: z.string().email("Invalid email address"),
+    role: z.nativeEnum(UserRole),
+  };
 
-type FormValues = z.infer<typeof userFormSchema>;
+  if (isNewUser) {
+    return z.object({
+      ...baseSchema,
+      password: z.string().min(6, "Password must be at least 6 characters"),
+      confirmPassword: z.string().min(6, "Please confirm your password"),
+    }).refine((data) => data.password === data.confirmPassword, {
+      message: "Passwords do not match",
+      path: ["confirmPassword"],
+    });
+  } else {
+    return z.object({
+      ...baseSchema,
+      password: z.string().min(6, "Password must be at least 6 characters").optional(),
+      confirmPassword: z.string().optional(),
+    }).refine((data) => {
+      if (data.password || data.confirmPassword) {
+        return data.password === data.confirmPassword;
+      }
+      return true;
+    }, {
+      message: "Passwords do not match",
+      path: ["confirmPassword"],
+    });
+  }
+};
+
+type FormValues = {
+  username: string;
+  email: string;
+  role: UserRole;
+  password?: string;
+  confirmPassword?: string;
+};
 
 const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel }) => {
+  const isNewUser = !user;
+  const userFormSchema = createUserFormSchema(isNewUser);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(userFormSchema),
     defaultValues: user
@@ -66,8 +91,6 @@ const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel }) => {
           confirmPassword: "",
         },
   });
-
-  const isNewUser = !user;
 
   const handleSubmit = (data: FormValues) => {
     console.log('Form submitted with data:', data);
@@ -132,40 +155,36 @@ const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel }) => {
           )}
         />
 
-        {isNewUser && (
-          <>
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    At least 6 characters
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Password{isNewUser && " *"}</FormLabel>
+              <FormControl>
+                <Input type="password" placeholder="••••••••" {...field} />
+              </FormControl>
+              <FormDescription>
+                {isNewUser ? "Required - At least 6 characters" : "Leave empty to keep current password"}
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-            <FormField
-              control={form.control}
-              name="confirmPassword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Confirm Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </>
-        )}
+        <FormField
+          control={form.control}
+          name="confirmPassword"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Confirm Password{isNewUser && " *"}</FormLabel>
+              <FormControl>
+                <Input type="password" placeholder="••••••••" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <div className="flex justify-end space-x-4">
           <Button type="button" variant="outline" onClick={onCancel}>
