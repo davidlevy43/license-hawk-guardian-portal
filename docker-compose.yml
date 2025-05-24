@@ -1,0 +1,63 @@
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: license-manager-db
+    environment:
+      POSTGRES_DB: license_manager
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./server/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - license-manager-network
+    restart: unless-stopped
+
+  # Backend API Server
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: license-manager-api
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://admin:admin123@postgres:5432/license_manager
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+    networks:
+      - license-manager-network
+    restart: unless-stopped
+    volumes:
+      - ./server/uploads:/app/uploads
+
+  # Frontend Web Server (Nginx)
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: license-manager-web
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - api
+    networks:
+      - license-manager-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  license-manager-network:
+    driver: bridge
