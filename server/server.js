@@ -196,16 +196,30 @@ app.get('/api/users/:id', async (req, res) => {
 app.post('/api/users', async (req, res) => {
   const { username, email, role, password = 'default123' } = req.body;
   
+  console.log('Creating user with data:', { username, email, role, password: password ? '[PROVIDED]' : '[DEFAULT]' });
+  
   if (!username || !email || !role) {
+    console.log('Missing required fields:', { username: !!username, email: !!email, role: !!role });
     res.status(400).json({ error: 'Missing required fields' });
     return;
   }
   
   try {
+    // Check if user with this email already exists
+    const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existingUser.rows.length > 0) {
+      console.log('User already exists with email:', email);
+      res.status(400).json({ error: 'Email already exists' });
+      return;
+    }
+    
+    console.log('Inserting new user into database...');
     const result = await pool.query(
       'INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, username, email, role, created_at',
       [username, email, password, role]
     );
+    
+    console.log('User created successfully:', result.rows[0]);
     
     const responseUser = {
       ...result.rows[0],
@@ -214,11 +228,11 @@ app.post('/api/users', async (req, res) => {
     
     res.status(201).json(responseUser);
   } catch (error) {
-    console.error(error);
+    console.error('Database error creating user:', error);
     if (error.code === '23505') { // Unique violation
       res.status(400).json({ error: 'Email already exists' });
     } else {
-      res.status(500).json({ error: 'Failed to create user' });
+      res.status(500).json({ error: 'Failed to create user', details: error.message });
     }
   }
 });

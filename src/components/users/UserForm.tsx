@@ -36,6 +36,8 @@ const userFormSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters").optional(),
   confirmPassword: z.string().optional(),
 }).refine((data) => {
+  // For new users, password is required
+  if (!data.password && !data.confirmPassword) return true; // editing existing user
   if (data.password && !data.confirmPassword) return false;
   if (!data.password && data.confirmPassword) return false;
   if (data.password && data.confirmPassword && data.password !== data.confirmPassword) return false;
@@ -67,9 +69,16 @@ const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel }) => {
 
   const isNewUser = !user;
 
+  const handleSubmit = (data: FormValues) => {
+    console.log('Form submitted with data:', data);
+    // Remove confirmPassword from the data sent to the API
+    const { confirmPassword, ...submitData } = data;
+    onSubmit(submitData);
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="username"

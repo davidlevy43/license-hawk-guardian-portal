@@ -31,8 +31,9 @@ export const UserAPI = {
     }
   },
   
-  create: async (user: Omit<User, 'id' | 'createdAt'>) => {
+  create: async (user: Omit<User, 'id' | 'createdAt'> & { password?: string }) => {
     try {
+      console.log('Creating user:', user);
       const newUser = await fetchAPI<User>('/users', {
         method: 'POST',
         body: JSON.stringify(user),

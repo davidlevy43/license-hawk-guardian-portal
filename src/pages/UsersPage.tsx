@@ -90,6 +90,8 @@ const UsersPage: React.FC = () => {
     try {
       setIsLoading(true);
       
+      console.log('Submitting user form with data:', formData);
+      
       if (selectedUser) {
         // Update existing user
         const updatedUser = await UserAPI.update(selectedUser.id, formData);
@@ -101,12 +103,16 @@ const UsersPage: React.FC = () => {
         ));
         toast.success(`User ${formData.username} updated successfully`);
       } else {
-        // Add new user
-        const newUser = await UserAPI.create({
+        // Add new user - make sure to include password
+        const newUserData = {
           username: formData.username,
           email: formData.email,
-          role: formData.role
-        });
+          role: formData.role,
+          password: formData.password || 'default123'
+        };
+        
+        console.log('Creating new user with data:', newUserData);
+        const newUser = await UserAPI.create(newUserData);
         
         setUsers([...users, newUser]);
         toast.success(`User ${formData.username} created successfully`);
