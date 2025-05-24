@@ -70,7 +70,7 @@ async function initializeDatabase() {
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         username VARCHAR(255) NOT NULL,
         email VARCHAR(255) NOT NULL UNIQUE,
-        password VARCHAR(255) NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
         role VARCHAR(50) NOT NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
@@ -78,17 +78,17 @@ async function initializeDatabase() {
     
     console.log('Users table initialized');
     
-    // Check if password column exists and add it if missing
+    // Check if password_hash column exists and add it if missing
     const checkPasswordColumn = await pool.query(`
       SELECT column_name 
       FROM information_schema.columns 
-      WHERE table_name = 'users' AND column_name = 'password'
+      WHERE table_name = 'users' AND column_name = 'password_hash'
     `);
     
     if (checkPasswordColumn.rows.length === 0) {
-      console.log('Adding missing password column to users table...');
-      await pool.query(`ALTER TABLE users ADD COLUMN password VARCHAR(255) NOT NULL DEFAULT 'default123'`);
-      console.log('Password column added successfully');
+      console.log('Adding missing password_hash column to users table...');
+      await pool.query(`ALTER TABLE users ADD COLUMN password_hash VARCHAR(255) NOT NULL DEFAULT 'default123'`);
+      console.log('Password_hash column added successfully');
     }
     
     await pool.query(`
@@ -141,9 +141,9 @@ async function checkAndCreateSpecificAdmin(username, email, password) {
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     
     if (result.rows.length === 0) {
-      // Create admin user
+      // Create admin user with password_hash instead of password
       await pool.query(
-        'INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, $4)',
+        'INSERT INTO users (username, email, password_hash, role) VALUES ($1, $2, $3, $4)',
         [username, email, password, 'admin']
       );
       console.log(`Admin user ${email} created`);
@@ -227,8 +227,9 @@ app.post('/api/users', async (req, res) => {
     }
     
     console.log('Inserting new user into database...');
+    // Use password_hash instead of password
     const result = await pool.query(
-      'INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, username, email, role, created_at',
+      'INSERT INTO users (username, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id, username, email, role, created_at',
       [username, email, password, role]
     );
     
