@@ -9,7 +9,7 @@ import { API_URL } from "@/services/api/base";
 interface AuthContextType {
   currentUser: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (usernameOrEmail: string, password: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -56,26 +56,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     validateSession();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (usernameOrEmail: string, password: string) => {
     setIsLoading(true);
     try {
-      console.log("Attempting login with email:", email);
+      console.log("Attempting login with usernameOrEmail:", usernameOrEmail);
       
       // For Lovable preview environment, we'll use a simpler approach
       if (window.location.hostname.includes('lovableproject.com')) {
         console.log("Using simplified login for preview environment");
         
         // Only accept our demo credentials
-        if ((email.toLowerCase() === "admin@example.com" || email.toLowerCase() === "david@rotem.com") 
+        if ((usernameOrEmail.toLowerCase() === "admin@example.com" || usernameOrEmail.toLowerCase() === "david@rotem.com" || 
+             usernameOrEmail.toLowerCase() === "admin" || usernameOrEmail.toLowerCase() === "david") 
             && password === "admin123") {
           
-          const userId = email.toLowerCase() === "admin@example.com" ? "admin-id" : "david-id";
-          const username = email.toLowerCase() === "admin@example.com" ? "admin" : "david";
+          const userId = usernameOrEmail.toLowerCase().includes("david") ? "david-id" : "admin-id";
+          const username = usernameOrEmail.toLowerCase().includes("david") ? "david" : "admin";
+          const email = usernameOrEmail.toLowerCase().includes("david") ? "david@rotem.com" : "admin@example.com";
           
           const mockUser = {
             id: userId,
             username: username,
-            email: email.toLowerCase(),
+            email: email,
             role: UserRole.ADMIN,
             createdAt: new Date()
           };
@@ -90,7 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsLoading(false);
           return;
         } else {
-          throw new Error("Invalid email or password. In the preview environment, use admin@example.com or david@rotem.com with password admin123");
+          throw new Error("Invalid username/email or password. In the preview environment, use admin@example.com or david@rotem.com with password admin123, or use usernames 'admin' or 'david'");
         }
       }
       
@@ -110,8 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error("Unable to connect to the server. Please check if the server is running and accessible.");
       }
       
-      // In a production app, we would use a dedicated login endpoint.
-      // For this app, we'll need to first get the user by email
+      // Get all users and find by username or email
       const response = await fetch(`${API_URL}/api/users`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
@@ -122,11 +123,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       const users = await response.json();
-      const user = users.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
+      
+      // Check if input is email (contains @) or username
+      const isEmail = usernameOrEmail.includes('@');
+      const user = users.find((u: any) => {
+        if (isEmail) {
+          return u.email.toLowerCase() === usernameOrEmail.toLowerCase();
+        } else {
+          return u.username.toLowerCase() === usernameOrEmail.toLowerCase();
+        }
+      });
       
       if (!user) {
-        console.error("No user found with email:", email);
-        throw new Error("Invalid email or password");
+        console.error("No user found with username/email:", usernameOrEmail);
+        throw new Error("Invalid username/email or password");
       }
       
       // Get the user's full details including password
@@ -142,7 +152,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userDetails = await userDetailsResponse.json();
 
       // Fix for default admin users - if this is one of our default admins, accept admin123
-      if ((email.toLowerCase() === "admin@example.com" || email.toLowerCase() === "david@rotem.com") 
+      if (((user.email.toLowerCase() === "admin@example.com" || user.email.toLowerCase() === "david@rotem.com") ||
+           (user.username.toLowerCase() === "admin" || user.username.toLowerCase() === "david"))
           && password === "admin123") {
         // Store authentication info in sessionStorage
         sessionStorage.setItem("authToken", "secure-token"); 
@@ -156,8 +167,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Compare passwords (in a real app, this would be done securely on the server)
       if (userDetails.password !== password) {
-        console.error("Password mismatch for user:", email);
-        throw new Error("Invalid email or password");
+        console.error("Password mismatch for user:", usernameOrEmail);
+        throw new Error("Invalid username/email or password");
       }
       
       // Store authentication info in sessionStorage
