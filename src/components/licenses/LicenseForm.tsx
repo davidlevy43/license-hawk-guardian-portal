@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -6,6 +5,7 @@ import * as z from "zod";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { License, LicenseType, LicenseStatus, PaymentMethod } from "@/types";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,7 +37,7 @@ interface LicenseFormProps {
   initialData?: License;
   onSubmit: (data: z.infer<typeof licenseFormSchema>) => void;
   onCancel: () => void;
-  isSubmitting?: boolean; // Added isSubmitting prop
+  isSubmitting?: boolean;
 }
 
 const licenseFormSchema = z.object({
@@ -50,6 +50,7 @@ const licenseFormSchema = z.object({
   monthlyCost: z.coerce.number().min(0, "Monthly cost must be 0 or greater"),
   paymentMethod: z.nativeEnum(PaymentMethod),
   serviceOwner: z.string().min(1, "Service owner is required"),
+  serviceOwnerEmail: z.string().email("Please enter a valid email address").min(1, "Service owner email is required"),
   status: z.nativeEnum(LicenseStatus),
   notes: z.string().optional(),
   creditCardDigits: z.string().max(4).optional(),
@@ -61,8 +62,10 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
   initialData,
   onSubmit,
   onCancel,
-  isSubmitting = false, // Default to false if not provided
+  isSubmitting = false,
 }) => {
+  const { currentUser } = useAuth();
+  
   const form = useForm<FormValues>({
     resolver: zodResolver(licenseFormSchema),
     defaultValues: initialData || {
@@ -75,6 +78,7 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
       monthlyCost: 0,
       paymentMethod: PaymentMethod.CREDIT_CARD,
       serviceOwner: "",
+      serviceOwnerEmail: currentUser?.email || "",
       status: LicenseStatus.ACTIVE,
       notes: "",
       creditCardDigits: "",
@@ -341,32 +345,51 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
             
             <FormField
               control={form.control}
-              name="status"
+              name="serviceOwnerEmail"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {Object.values(LicenseStatus).map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status.charAt(0).toUpperCase() + status.slice(1)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>Service Owner Email</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="email" 
+                      placeholder="john.smith@company.com" 
+                      {...field}
+                      className="bg-muted/50"
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
           </div>
+          
+          <FormField
+            control={form.control}
+            name="status"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Status</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {Object.values(LicenseStatus).map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           
           <FormField
             control={form.control}
