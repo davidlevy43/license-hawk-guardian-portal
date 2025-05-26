@@ -2,7 +2,21 @@
 // API Configuration
 export let API_URL = 'http://localhost:3001';
 
-// Update API URL for local Docker setup
+// Get the current host IP for network connections
+const getCurrentHostIP = () => {
+  const hostname = window.location.hostname;
+  
+  // If we're on localhost, try to detect network IP
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    // For local development, default to localhost
+    return 'localhost';
+  }
+  
+  // Use the current hostname (could be an IP address)
+  return hostname;
+};
+
+// Update API URL for network setup
 export const updateApiUrl = (newUrl: string) => {
   API_URL = newUrl;
   // Store in session storage for persistence
@@ -10,10 +24,15 @@ export const updateApiUrl = (newUrl: string) => {
   console.log('API URL updated to:', newUrl);
 };
 
-// Initialize API URL from session storage if available
+// Initialize API URL from session storage or auto-detect
 const storedUrl = sessionStorage.getItem('api_server_url');
 if (storedUrl) {
   API_URL = storedUrl;
+} else {
+  // Auto-detect based on current hostname
+  const currentHost = getCurrentHostIP();
+  API_URL = `http://${currentHost}:3001`;
+  console.log('Auto-detected API URL:', API_URL);
 }
 
 // Helper function to make API requests

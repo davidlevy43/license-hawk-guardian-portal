@@ -11,8 +11,15 @@ const os = require('os');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Enhanced CORS configuration for network access
+app.use(cors({
+  origin: true, // Allow all origins
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
 // Middleware
-app.use(cors());
 app.use(bodyParser.json());
 
 // Get machine's IP addresses for logging
@@ -542,7 +549,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error', message: err.message });
 });
 
-// Start the server - Listen on all network interfaces 
+// Start the server - Listen on all network interfaces (0.0.0.0)
 app.listen(PORT, '0.0.0.0', () => {
   const ipAddresses = getLocalIpAddresses();
   console.log(`=== License Manager Server Started ===`);
@@ -565,7 +572,8 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`- Network: http://${ip}:${PORT}/api/`);
   });
   
-  console.log(`\n=== Server Ready ===`);
+  console.log(`\n=== Server Ready for Network Access ===`);
+  console.log(`To access from other computers, use one of the Network URLs above`);
 });
 
 // Handle proper shutdown

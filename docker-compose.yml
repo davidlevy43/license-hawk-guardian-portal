@@ -30,7 +30,7 @@ services:
       PORT: 3001
       DATABASE_URL: postgresql://admin:admin123@postgres:5432/license_manager
     ports:
-      - "3001:3001"
+      - "0.0.0.0:3001:3001"  # Listen on all interfaces
     depends_on:
       - postgres
     networks:
@@ -46,8 +46,8 @@ services:
       dockerfile: Dockerfile.frontend
     container_name: license-manager-web
     ports:
-      - "80:80"
-      - "443:443"
+      - "0.0.0.0:80:80"     # Listen on all interfaces
+      - "0.0.0.0:443:443"   # Listen on all interfaces
     depends_on:
       - api
     networks:
