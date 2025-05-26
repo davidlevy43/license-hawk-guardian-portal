@@ -1,10 +1,8 @@
 
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
-    image: postgres:15-alpine
+    image: postgres:15
     container_name: license-manager-db
     environment:
       POSTGRES_DB: license_manager
