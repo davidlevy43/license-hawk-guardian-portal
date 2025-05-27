@@ -60,6 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       console.log("Attempting login with usernameOrEmail:", usernameOrEmail);
+      console.log("API_URL:", API_URL);
       
       // For Lovable preview environment, we'll use a simpler approach
       if (window.location.hostname.includes('lovableproject.com')) {
@@ -98,6 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       try {
         // First test if the server is available
+        console.log("Testing server health...");
         const healthResponse = await fetch(`${API_URL}/api/health`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
@@ -107,94 +109,101 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!healthResponse.ok) {
           throw new Error("Server health check failed");
         }
+        console.log("Server health check passed");
       } catch (error) {
         console.error("Server health check failed:", error);
         throw new Error("Unable to connect to the server. Please check if the server is running and accessible.");
       }
       
-      // Get all users and find by username or email
-      const response = await fetch(`${API_URL}/api/users`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch user data");
-      }
-      
-      const users = await response.json();
-      
-      // Check if input is email (contains @) or username
-      const isEmail = usernameOrEmail.includes('@');
-      const user = users.find((u: any) => {
-        if (isEmail) {
-          return u.email.toLowerCase() === usernameOrEmail.toLowerCase();
-        } else {
-          return u.username.toLowerCase() === usernameOrEmail.toLowerCase();
-        }
-      });
-      
-      if (!user) {
-        console.error("No user found with username/email:", usernameOrEmail);
-        throw new Error("Invalid username/email or password");
-      }
-      
-      // Get the user's full details from the server to check password
-      const userDetailsResponse = await fetch(`${API_URL}/api/users/${user.id}`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      if (!userDetailsResponse.ok) {
-        throw new Error("Failed to fetch user details");
-      }
-      
-      // For password validation, we need to use the server API to get the actual password_hash
-      // Since our server stores passwords in the password_hash field, we'll validate against that
+      console.log("Attempting to use login endpoint...");
+      // Try the dedicated login endpoint first
       try {
-        // Make a special login request to the server that validates the password
         const loginResponse = await fetch(`${API_URL}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ usernameOrEmail, password })
         });
         
+        console.log("Login endpoint response status:", loginResponse.status);
+        
         if (loginResponse.ok) {
-          // Server validated the password
           const loginData = await loginResponse.json();
+          console.log("Login successful via endpoint");
           
           // Store authentication info in sessionStorage
-          sessionStorage.setItem("authToken", "secure-token");
+          sessionStorage.setItem("authToken", loginData.token || "secure-token");
+          sessionStorage.setItem("userId", loginData.user.id);
+          
+          setCurrentUser({
+            ...loginData.user,
+            createdAt: new Date(loginData.user.createdAt)
+          });
+          toast.success(`Welcome back, ${loginData.user.username}!`);
+          navigate("/dashboard");
+          return;
+        } else {
+          const errorData = await loginResponse.json();
+          console.error("Login endpoint error:", errorData);
+          throw new Error(errorData.error || "Login failed");
+        }
+      } catch (loginError) {
+        console.error("Login endpoint failed:", loginError);
+        console.log("Falling back to user list method...");
+        
+        // Fallback: Get all users and find by username or email
+        const response = await fetch(`${API_URL}/api/users`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch user data");
+        }
+        
+        const users = await response.json();
+        console.log("Fetched users count:", users.length);
+        
+        // Check if input is email (contains @) or username
+        const isEmail = usernameOrEmail.includes('@');
+        console.log("Is email:", isEmail);
+        
+        const user = users.find((u: any) => {
+          if (isEmail) {
+            return u.email.toLowerCase() === usernameOrEmail.toLowerCase();
+          } else {
+            return u.username.toLowerCase() === usernameOrEmail.toLowerCase();
+          }
+        });
+        
+        if (!user) {
+          console.error("No user found with username/email:", usernameOrEmail);
+          console.log("Available users:", users.map((u: any) => ({ username: u.username, email: u.email })));
+          throw new Error("Invalid username/email or password");
+        }
+        
+        console.log("Found user:", { id: user.id, username: user.username, email: user.email });
+        
+        // For fallback method, check if this is one of our default admin users with known password
+        if (((user.email.toLowerCase() === "admin@example.com" || user.email.toLowerCase() === "david@rotem.com") ||
+             (user.username.toLowerCase() === "admin" || user.username.toLowerCase() === "david"))
+            && password === "admin123") {
+          console.log("Using admin fallback authentication");
+          // Store authentication info in sessionStorage
+          sessionStorage.setItem("authToken", "secure-token"); 
           sessionStorage.setItem("userId", user.id);
           
-          setCurrentUser(user);
+          setCurrentUser({
+            ...user,
+            createdAt: new Date(user.createdAt)
+          });
           toast.success(`Welcome back, ${user.username}!`);
           navigate("/dashboard");
           return;
         }
-      } catch (loginError) {
-        // If the login endpoint doesn't exist, fall back to our current method
-        console.log("Login endpoint not available, using fallback method");
-      }
-      
-      // Fallback: Check if this is one of our default admin users with known password
-      if (((user.email.toLowerCase() === "admin@example.com" || user.email.toLowerCase() === "david@rotem.com") ||
-           (user.username.toLowerCase() === "admin" || user.username.toLowerCase() === "david"))
-          && password === "admin123") {
-        // Store authentication info in sessionStorage
-        sessionStorage.setItem("authToken", "secure-token"); 
-        sessionStorage.setItem("userId", user.id);
         
-        setCurrentUser(user);
-        toast.success(`Welcome back, ${user.username}!`);
-        navigate("/dashboard");
-        return;
+        console.error("Password validation failed for user:", usernameOrEmail);
+        throw new Error("Invalid username/email or password");
       }
-      
-      // For new users created through the system, the password is stored in password_hash field
-      // We need to directly check against that field since the server doesn't expose it in the API
-      console.error("Password validation failed for user:", usernameOrEmail);
-      throw new Error("Invalid username/email or password");
       
     } catch (error: any) {
       // Handle login errors

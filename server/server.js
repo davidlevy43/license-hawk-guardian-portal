@@ -179,7 +179,10 @@ app.get('/api/health', (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   const { usernameOrEmail, password } = req.body;
   
+  console.log(`[LOGIN ATTEMPT] Username/Email: ${usernameOrEmail}, Password length: ${password ? password.length : 0}`);
+  
   if (!usernameOrEmail || !password) {
+    console.log('[LOGIN ERROR] Missing credentials');
     res.status(400).json({ error: 'Username/email and password are required' });
     return;
   }
@@ -192,25 +195,36 @@ app.post('/api/auth/login', async (req, res) => {
     if (isEmail) {
       query = 'SELECT * FROM users WHERE email = $1';
       params = [usernameOrEmail.toLowerCase()];
+      console.log(`[LOGIN] Searching by email: ${usernameOrEmail.toLowerCase()}`);
     } else {
       query = 'SELECT * FROM users WHERE username = $1';
       params = [usernameOrEmail.toLowerCase()];
+      console.log(`[LOGIN] Searching by username: ${usernameOrEmail.toLowerCase()}`);
     }
     
     const result = await pool.query(query, params);
+    console.log(`[LOGIN] Found ${result.rows.length} users`);
     
     if (result.rows.length === 0) {
+      console.log(`[LOGIN ERROR] No user found with ${isEmail ? 'email' : 'username'}: ${usernameOrEmail}`);
       res.status(401).json({ error: 'Invalid username/email or password' });
       return;
     }
     
     const user = result.rows[0];
+    console.log(`[LOGIN] User found - ID: ${user.id}, Username: ${user.username}, Email: ${user.email}`);
+    console.log(`[LOGIN] Stored password hash: ${user.password_hash}`);
+    console.log(`[LOGIN] Provided password: ${password}`);
     
     // Check password against password_hash field
     if (user.password_hash !== password) {
+      console.log(`[LOGIN ERROR] Password mismatch for user ${user.username}`);
+      console.log(`[LOGIN ERROR] Expected: ${user.password_hash}, Got: ${password}`);
       res.status(401).json({ error: 'Invalid username/email or password' });
       return;
     }
+    
+    console.log(`[LOGIN SUCCESS] User ${user.username} authenticated successfully`);
     
     // Return user data without password
     const { password_hash, ...userWithoutPassword } = user;
@@ -226,7 +240,7 @@ app.post('/api/auth/login', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('[LOGIN ERROR] Database error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
