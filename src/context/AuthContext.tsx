@@ -59,12 +59,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (usernameOrEmail: string, password: string) => {
     setIsLoading(true);
     try {
-      console.log("Attempting login with usernameOrEmail:", usernameOrEmail);
-      console.log("API_URL:", API_URL);
+      console.log("🔐 [CLIENT] Starting login process...");
+      console.log("🔐 [CLIENT] Username/Email:", usernameOrEmail);
+      console.log("🔐 [CLIENT] Password length:", password ? password.length : 0);
+      console.log("🔐 [CLIENT] API_URL:", API_URL);
       
       // For Lovable preview environment, we'll use a simpler approach
       if (window.location.hostname.includes('lovableproject.com')) {
-        console.log("Using simplified login for preview environment");
+        console.log("🔐 [CLIENT] Using simplified login for preview environment");
         
         // Only accept our demo credentials
         if ((usernameOrEmail.toLowerCase() === "admin@example.com" || usernameOrEmail.toLowerCase() === "david@rotem.com" || 
@@ -93,30 +95,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsLoading(false);
           return;
         } else {
+          console.log("🔐 [CLIENT] Invalid preview credentials");
           throw new Error("Invalid username/email or password. In the preview environment, use admin@example.com or david@rotem.com with password admin123, or use usernames 'admin' or 'david'");
         }
       }
       
+      console.log("🔐 [CLIENT] Attempting server login...");
+      
+      // First test if the server is available
+      console.log("🔐 [CLIENT] Testing server health...");
       try {
-        // First test if the server is available
-        console.log("Testing server health...");
         const healthResponse = await fetch(`${API_URL}/api/health`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
-          signal: AbortSignal.timeout(5000) // 5 second timeout
+          signal: AbortSignal.timeout(5000)
         });
         
         if (!healthResponse.ok) {
           throw new Error("Server health check failed");
         }
-        console.log("Server health check passed");
+        console.log("🔐 [CLIENT] Server health check passed ✅");
       } catch (error) {
-        console.error("Server health check failed:", error);
+        console.error("🔐 [CLIENT] Server health check failed:", error);
         throw new Error("Unable to connect to the server. Please check if the server is running and accessible.");
       }
       
-      console.log("Attempting to use login endpoint...");
       // Try the dedicated login endpoint first
+      console.log("🔐 [CLIENT] Attempting login via /api/auth/login endpoint...");
       try {
         const loginResponse = await fetch(`${API_URL}/api/auth/login`, {
           method: 'POST',
@@ -124,11 +129,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           body: JSON.stringify({ usernameOrEmail, password })
         });
         
-        console.log("Login endpoint response status:", loginResponse.status);
+        console.log("🔐 [CLIENT] Login endpoint response status:", loginResponse.status);
         
         if (loginResponse.ok) {
           const loginData = await loginResponse.json();
-          console.log("Login successful via endpoint");
+          console.log("🔐 [CLIENT] Login successful via endpoint ✅");
+          console.log("🔐 [CLIENT] User data received:", { 
+            id: loginData.user.id, 
+            username: loginData.user.username, 
+            email: loginData.user.email 
+          });
           
           // Store authentication info in sessionStorage
           sessionStorage.setItem("authToken", loginData.token || "secure-token");
@@ -143,12 +153,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         } else {
           const errorData = await loginResponse.json();
-          console.error("Login endpoint error:", errorData);
+          console.error("🔐 [CLIENT] Login endpoint error:", errorData);
           throw new Error(errorData.error || "Login failed");
         }
       } catch (loginError) {
-        console.error("Login endpoint failed:", loginError);
-        console.log("Falling back to user list method...");
+        console.error("🔐 [CLIENT] Login endpoint failed:", loginError);
+        console.log("🔐 [CLIENT] Falling back to user list method...");
         
         // Fallback: Get all users and find by username or email
         const response = await fetch(`${API_URL}/api/users`, {
@@ -161,11 +171,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         
         const users = await response.json();
-        console.log("Fetched users count:", users.length);
+        console.log("🔐 [CLIENT] Fetched users count:", users.length);
         
         // Check if input is email (contains @) or username
         const isEmail = usernameOrEmail.includes('@');
-        console.log("Is email:", isEmail);
+        console.log("🔐 [CLIENT] Is email:", isEmail);
         
         const user = users.find((u: any) => {
           if (isEmail) {
@@ -176,18 +186,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         
         if (!user) {
-          console.error("No user found with username/email:", usernameOrEmail);
-          console.log("Available users:", users.map((u: any) => ({ username: u.username, email: u.email })));
+          console.error("🔐 [CLIENT] No user found with username/email:", usernameOrEmail);
+          console.log("🔐 [CLIENT] Available users:", users.map((u: any) => ({ username: u.username, email: u.email })));
           throw new Error("Invalid username/email or password");
         }
         
-        console.log("Found user:", { id: user.id, username: user.username, email: user.email });
+        console.log("🔐 [CLIENT] Found user:", { id: user.id, username: user.username, email: user.email });
         
         // For fallback method, check if this is one of our default admin users with known password
         if (((user.email.toLowerCase() === "admin@example.com" || user.email.toLowerCase() === "david@rotem.com") ||
              (user.username.toLowerCase() === "admin" || user.username.toLowerCase() === "david"))
             && password === "admin123") {
-          console.log("Using admin fallback authentication");
+          console.log("🔐 [CLIENT] Using admin fallback authentication ✅");
           // Store authentication info in sessionStorage
           sessionStorage.setItem("authToken", "secure-token"); 
           sessionStorage.setItem("userId", user.id);
@@ -201,13 +211,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
         
-        console.error("Password validation failed for user:", usernameOrEmail);
+        console.error("🔐 [CLIENT] Password validation failed for user:", usernameOrEmail);
         throw new Error("Invalid username/email or password");
       }
       
     } catch (error: any) {
       // Handle login errors
-      console.error("Login error:", error);
+      console.error("🔐 [CLIENT] Login error:", error);
       throw error; // Let the component handle displaying the error
     } finally {
       setIsLoading(false);
