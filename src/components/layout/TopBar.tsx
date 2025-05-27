@@ -1,6 +1,7 @@
 
 import React from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useNotifications } from "@/hooks/useNotifications";
 import { User, Bell } from "lucide-react";
 import { 
   DropdownMenu, 
@@ -12,10 +13,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useNavigate } from "react-router-dom";
 
 const TopBar: React.FC = () => {
   const { currentUser, logout } = useAuth();
+  const { notifications, count } = useNotifications();
+  const navigate = useNavigate();
   
+  const handleViewAllNotifications = () => {
+    navigate("/licenses");
+  };
+
   return (
     <header className="bg-background border-b border-border h-16 flex items-center px-4 md:px-6">
       <div className="flex-1">
@@ -27,36 +35,60 @@ const TopBar: React.FC = () => {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative">
               <Bell size={20} />
-              <Badge className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center p-0">
-                3
-              </Badge>
+              {count > 0 && (
+                <Badge className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center p-0">
+                  {count > 99 ? '99+' : count}
+                </Badge>
+              )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
             <DropdownMenuLabel>Notifications</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer">
-              <div className="flex flex-col">
-                <span className="font-medium">Windows Server 2022 expiring soon</span>
-                <span className="text-sm text-muted-foreground">Renewal due in 7 days</span>
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer">
-              <div className="flex flex-col">
-                <span className="font-medium">Office 365 license added</span>
-                <span className="text-sm text-muted-foreground">Added by admin 2 hours ago</span>
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer">
-              <div className="flex flex-col">
-                <span className="font-medium">VMware vSphere expired</span>
-                <span className="text-sm text-muted-foreground">Expired yesterday</span>
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer text-center text-primary">
-              View all notifications
-            </DropdownMenuItem>
+            
+            {notifications.length === 0 ? (
+              <DropdownMenuItem disabled className="text-center py-4">
+                <span className="text-muted-foreground">No notifications</span>
+              </DropdownMenuItem>
+            ) : (
+              <>
+                {notifications.slice(0, 5).map((notification) => (
+                  <DropdownMenuItem key={notification.id} className="cursor-pointer">
+                    <div className="flex flex-col w-full">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{notification.title}</span>
+                        {notification.type === 'error' && (
+                          <div className="w-2 h-2 bg-red-500 rounded-full" />
+                        )}
+                        {notification.type === 'warning' && (
+                          <div className="w-2 h-2 bg-yellow-500 rounded-full" />
+                        )}
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {notification.description}
+                      </span>
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+                
+                {notifications.length > 5 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem disabled className="text-center text-sm text-muted-foreground">
+                      +{notifications.length - 5} more notifications
+                    </DropdownMenuItem>
+                  </>
+                )}
+                
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  className="cursor-pointer text-center text-primary"
+                  onClick={handleViewAllNotifications}
+                >
+                  View all notifications
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
         
