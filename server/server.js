@@ -175,6 +175,62 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Authentication endpoint
+app.post('/api/auth/login', async (req, res) => {
+  const { usernameOrEmail, password } = req.body;
+  
+  if (!usernameOrEmail || !password) {
+    res.status(400).json({ error: 'Username/email and password are required' });
+    return;
+  }
+  
+  try {
+    // Check if input is email (contains @) or username
+    const isEmail = usernameOrEmail.includes('@');
+    let query, params;
+    
+    if (isEmail) {
+      query = 'SELECT * FROM users WHERE email = $1';
+      params = [usernameOrEmail.toLowerCase()];
+    } else {
+      query = 'SELECT * FROM users WHERE username = $1';
+      params = [usernameOrEmail.toLowerCase()];
+    }
+    
+    const result = await pool.query(query, params);
+    
+    if (result.rows.length === 0) {
+      res.status(401).json({ error: 'Invalid username/email or password' });
+      return;
+    }
+    
+    const user = result.rows[0];
+    
+    // Check password against password_hash field
+    if (user.password_hash !== password) {
+      res.status(401).json({ error: 'Invalid username/email or password' });
+      return;
+    }
+    
+    // Return user data without password
+    const { password_hash, ...userWithoutPassword } = user;
+    const responseUser = {
+      ...userWithoutPassword,
+      createdAt: user.created_at
+    };
+    
+    res.json({ 
+      message: 'Login successful', 
+      user: responseUser,
+      token: 'secure-token' // In a real app, this would be a JWT
+    });
+    
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // User API endpoints
 app.get('/api/users', async (req, res) => {
   try {

@@ -139,7 +139,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error("Invalid username/email or password");
       }
       
-      // Get the user's full details including password
+      // Get the user's full details from the server to check password
       const userDetailsResponse = await fetch(`${API_URL}/api/users/${user.id}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
@@ -149,9 +149,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error("Failed to fetch user details");
       }
       
-      const userDetails = await userDetailsResponse.json();
-
-      // Fix for default admin users - if this is one of our default admins, accept admin123
+      // For password validation, we need to use the server API to get the actual password_hash
+      // Since our server stores passwords in the password_hash field, we'll validate against that
+      try {
+        // Make a special login request to the server that validates the password
+        const loginResponse = await fetch(`${API_URL}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ usernameOrEmail, password })
+        });
+        
+        if (loginResponse.ok) {
+          // Server validated the password
+          const loginData = await loginResponse.json();
+          
+          // Store authentication info in sessionStorage
+          sessionStorage.setItem("authToken", "secure-token");
+          sessionStorage.setItem("userId", user.id);
+          
+          setCurrentUser(user);
+          toast.success(`Welcome back, ${user.username}!`);
+          navigate("/dashboard");
+          return;
+        }
+      } catch (loginError) {
+        // If the login endpoint doesn't exist, fall back to our current method
+        console.log("Login endpoint not available, using fallback method");
+      }
+      
+      // Fallback: Check if this is one of our default admin users with known password
       if (((user.email.toLowerCase() === "admin@example.com" || user.email.toLowerCase() === "david@rotem.com") ||
            (user.username.toLowerCase() === "admin" || user.username.toLowerCase() === "david"))
           && password === "admin123") {
@@ -165,19 +191,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       
-      // Compare passwords (in a real app, this would be done securely on the server)
-      if (userDetails.password !== password) {
-        console.error("Password mismatch for user:", usernameOrEmail);
-        throw new Error("Invalid username/email or password");
-      }
+      // For new users created through the system, the password is stored in password_hash field
+      // We need to directly check against that field since the server doesn't expose it in the API
+      console.error("Password validation failed for user:", usernameOrEmail);
+      throw new Error("Invalid username/email or password");
       
-      // Store authentication info in sessionStorage
-      sessionStorage.setItem("authToken", "secure-token"); // In a real app, this would be a JWT
-      sessionStorage.setItem("userId", user.id);
-      
-      setCurrentUser(user);
-      toast.success(`Welcome back, ${user.username}!`);
-      navigate("/dashboard");
     } catch (error: any) {
       // Handle login errors
       console.error("Login error:", error);
