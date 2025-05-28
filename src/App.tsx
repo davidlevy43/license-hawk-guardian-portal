@@ -8,6 +8,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { LicenseProvider } from "@/context/LicenseContext";
 import { NotificationProvider } from "@/context/NotificationContext";
 import MainLayout from "@/components/layout/MainLayout";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 
 // Pages
@@ -42,15 +43,27 @@ const App = () => (
                 {/* Public routes - accessible without authentication */}
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<LoginPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/settings" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <SettingsPage />
+                  </ProtectedRoute>
+                } />
                 
                 {/* Protected routes - require authentication */}
                 <Route element={<MainLayout />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/licenses" element={<LicensesPage />} />
                   <Route path="/calendar" element={<CalendarPage />} />
-                  <Route path="/notifications" element={<NotificationsPage />} />
-                  <Route path="/users" element={<UsersPage />} />
+                  <Route path="/notifications" element={
+                    <ProtectedRoute requireAdmin={true}>
+                      <NotificationsPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/users" element={
+                    <ProtectedRoute requireAdmin={true}>
+                      <UsersPage />
+                    </ProtectedRoute>
+                  } />
                 </Route>
                 
                 <Route path="*" element={<NotFound />} />

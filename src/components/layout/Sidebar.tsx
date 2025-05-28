@@ -55,7 +55,7 @@ const Sidebar: React.FC = () => {
       name: "Settings",
       href: "/settings",
       icon: Settings,
-      allowedRoles: ["admin", "user"]
+      allowedRoles: ["admin"]
     }
   ];
 
