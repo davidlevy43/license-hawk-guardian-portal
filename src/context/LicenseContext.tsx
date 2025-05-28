@@ -1,7 +1,6 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { License, LicenseStatus, LicenseType, PaymentMethod } from "@/types";
-import { format, addMonths } from "date-fns";
+import { format, addMonths, isPast, addDays, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { toast } from "sonner";
 import { LicenseAPI } from "@/services/api";
 
@@ -19,14 +18,21 @@ const LicenseContext = createContext<LicenseContextType | null>(null);
 
 // Helper function to determine status based on renewal date
 const getStatusFromDate = (renewalDate: Date): LicenseStatus => {
-  const now = new Date();
-  const thirtyDaysFromNow = addMonths(now, 1);
+  const today = startOfDay(new Date());
+  const thirtyDaysFromNow = endOfDay(addDays(today, 30));
   
-  if (renewalDate < now) {
+  console.log("🔍 Status calculation for renewal date:", renewalDate);
+  console.log("Today:", today);
+  console.log("30 days from now:", thirtyDaysFromNow);
+  
+  if (isPast(renewalDate)) {
+    console.log("Status: EXPIRED (date is in the past)");
     return LicenseStatus.EXPIRED;
-  } else if (renewalDate <= thirtyDaysFromNow) {
+  } else if (isWithinInterval(renewalDate, { start: today, end: thirtyDaysFromNow })) {
+    console.log("Status: PENDING (within 30 days)");
     return LicenseStatus.PENDING;
   } else {
+    console.log("Status: ACTIVE (more than 30 days)");
     return LicenseStatus.ACTIVE;
   }
 };
@@ -42,9 +48,20 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
       
       // Get all licenses from the API
       const apiLicenses = await LicenseAPI.getAll();
-      console.log("Licenses fetched:", apiLicenses);
+      console.log("Licenses fetched from API:", apiLicenses);
       
-      setLicenses(apiLicenses);
+      // Update status for each license based on renewal date
+      const licensesWithUpdatedStatus = apiLicenses.map(license => {
+        const calculatedStatus = getStatusFromDate(license.renewalDate);
+        const updatedLicense = { ...license, status: calculatedStatus };
+        
+        console.log(`License "${license.name}": renewal ${license.renewalDate}, status ${calculatedStatus}`);
+        
+        return updatedLicense;
+      });
+      
+      setLicenses(licensesWithUpdatedStatus);
+      console.log("Licenses with updated status:", licensesWithUpdatedStatus);
     } catch (error) {
       console.error("Error loading licenses:", error);
       toast.error("Failed to load licenses");
@@ -66,8 +83,12 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(true);
       console.log("Adding license:", licenseData);
       
+      // Calculate status based on renewal date
+      const calculatedStatus = getStatusFromDate(licenseData.renewalDate);
+      const licenseWithStatus = { ...licenseData, status: calculatedStatus };
+      
       // Add to API
-      const newLicense = await LicenseAPI.create(licenseData);
+      const newLicense = await LicenseAPI.create(licenseWithStatus);
       console.log("License created:", newLicense);
       
       // Update state
@@ -87,8 +108,14 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(true);
       console.log("Updating license:", id, licenseData);
       
+      // If renewal date is being updated, recalculate status
+      let updatedData = { ...licenseData };
+      if (licenseData.renewalDate) {
+        updatedData.status = getStatusFromDate(licenseData.renewalDate);
+      }
+      
       // Update in API
-      const updatedLicense = await LicenseAPI.update(id, licenseData);
+      const updatedLicense = await LicenseAPI.update(id, updatedData);
       
       // Update state
       setLicenses(prev => prev.map(license => {

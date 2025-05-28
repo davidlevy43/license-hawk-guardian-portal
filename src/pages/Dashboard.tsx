@@ -3,6 +3,7 @@ import React, { useMemo } from "react";
 import { useLicenses } from "@/context/LicenseContext";
 import { LicenseStatus } from "@/types";
 import { Database, Clock, AlertCircle } from "lucide-react";
+import { addDays, isPast, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import StatCard from "@/components/dashboard/StatCard";
 import LicenseChart from "@/components/dashboard/LicenseChart";
 import UpcomingRenewals from "@/components/dashboard/UpcomingRenewals";
@@ -11,7 +12,7 @@ import MonthlyCostCard from "@/components/dashboard/MonthlyCostCard";
 const Dashboard: React.FC = () => {
   const { licenses, isLoading } = useLicenses();
 
-  // Calculate statistics
+  // Calculate statistics with proper date logic
   const stats = useMemo(() => {
     if (!licenses.length) {
       return {
@@ -23,17 +24,38 @@ const Dashboard: React.FC = () => {
       };
     }
 
+    const today = startOfDay(new Date());
+    const thirtyDaysFromNow = endOfDay(addDays(today, 30));
+
+    // Calculate pending renewals (due in next 30 days, not expired)
+    const pendingRenewal = licenses.filter(license => {
+      const renewalDate = new Date(license.renewalDate);
+      return !isPast(renewalDate) && isWithinInterval(renewalDate, { start: today, end: thirtyDaysFromNow });
+    }).length;
+
+    // Calculate expired licenses
+    const expiredLicenses = licenses.filter(license => {
+      const renewalDate = new Date(license.renewalDate);
+      return isPast(renewalDate);
+    }).length;
+
+    // Active licenses are those not expired and not due for renewal in 30 days
+    const activeLicenses = licenses.filter(license => {
+      const renewalDate = new Date(license.renewalDate);
+      return !isPast(renewalDate) && !isWithinInterval(renewalDate, { start: today, end: thirtyDaysFromNow });
+    }).length;
+
+    console.log("📊 Dashboard stats calculation:");
+    console.log("Total licenses:", licenses.length);
+    console.log("Pending renewal (next 30 days):", pendingRenewal);
+    console.log("Expired licenses:", expiredLicenses);
+    console.log("Active licenses:", activeLicenses);
+
     return {
       totalLicenses: licenses.length,
-      activeLicenses: licenses.filter(
-        (license) => license.status === LicenseStatus.ACTIVE
-      ).length,
-      pendingRenewal: licenses.filter(
-        (license) => license.status === LicenseStatus.PENDING
-      ).length,
-      expiredLicenses: licenses.filter(
-        (license) => license.status === LicenseStatus.EXPIRED
-      ).length,
+      activeLicenses,
+      pendingRenewal,
+      expiredLicenses,
       totalMonthlyCost: licenses.reduce((acc, license) => acc + license.monthlyCost, 0),
     };
   }, [licenses]);
