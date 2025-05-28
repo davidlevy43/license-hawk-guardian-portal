@@ -1,9 +1,9 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { EmailSettings, NotificationSettings, License } from "@/types";
 import { toast } from "sonner";
 import { useLicenses } from "./LicenseContext";
 import { addDays, isWithinInterval } from "date-fns";
+import { notificationScheduler } from "@/services/notificationScheduler";
 
 interface NotificationContextType {
   emailSettings: EmailSettings;
@@ -13,6 +13,7 @@ interface NotificationContextType {
   testEmailConnection: () => Promise<boolean>;
   sendAutomaticNotifications: () => void;
   sendManualNotification: (licenseId: string, templateType: keyof NotificationSettings["emailTemplates"]) => boolean;
+  triggerManualCheck: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | null>(null);
@@ -63,27 +64,41 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         console.error("Failed to parse notification settings:", error);
       }
     }
+  }, []);
 
-    // Check for licenses needing notifications when the component mounts
-    const checkInterval = setInterval(() => {
-      if (emailSettings.automaticSending && notificationSettings.enabled) {
-        sendAutomaticNotifications();
-      }
-    }, 86400000); // Check once per day (24 hours in milliseconds)
-    
-    // Initial check
-    if (emailSettings.automaticSending && notificationSettings.enabled) {
-      sendAutomaticNotifications();
+  useEffect(() => {
+    // Start the notification scheduler when licenses or settings change
+    if (licenses.length > 0) {
+      console.log("🕐 Starting notification scheduler with", licenses.length, "licenses");
+      notificationScheduler.start(
+        licenses,
+        emailSettings,
+        notificationSettings,
+        sendEmailNotification
+      );
     }
 
-    return () => clearInterval(checkInterval);
-  }, [licenses, emailSettings.automaticSending, notificationSettings.enabled]);
+    // Cleanup function to stop scheduler when component unmounts
+    return () => {
+      notificationScheduler.stop();
+    };
+  }, [licenses, emailSettings, notificationSettings]);
 
   const updateEmailSettings = (settings: Partial<EmailSettings>) => {
     const updatedSettings = {...emailSettings, ...settings};
     setEmailSettings(updatedSettings);
     localStorage.setItem("emailSettings", JSON.stringify(updatedSettings));
     toast.success("Email settings updated");
+    
+    // Restart scheduler with new settings
+    if (licenses.length > 0) {
+      notificationScheduler.start(
+        licenses,
+        updatedSettings,
+        notificationSettings,
+        sendEmailNotification
+      );
+    }
   };
 
   const updateNotificationSettings = (settings: Partial<NotificationSettings>) => {
@@ -98,6 +113,16 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setNotificationSettings(updatedSettings);
     localStorage.setItem("notificationSettings", JSON.stringify(updatedSettings));
     toast.success("Notification settings updated");
+    
+    // Restart scheduler with new settings
+    if (licenses.length > 0) {
+      notificationScheduler.start(
+        licenses,
+        emailSettings,
+        updatedSettings,
+        sendEmailNotification
+      );
+    }
   };
 
   const testEmailConnection = async (): Promise<boolean> => {
@@ -116,22 +141,19 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const sendAutomaticNotifications = () => {
-    if (!notificationSettings.enabled) return;
-    
-    const today = new Date();
-    const oneDay = addDays(today, 1);
-    const sevenDays = addDays(today, 7);
-    const thirtyDays = addDays(today, 30);
-    
-    // Find licenses that are about to expire
-    const oneDayLicenses = findLicensesForNotification(oneDay, today);
-    const sevenDayLicenses = findLicensesForNotification(sevenDays, addDays(today, 6));
-    const thirtyDayLicenses = findLicensesForNotification(thirtyDays, addDays(today, 29));
-    
-    // Send notifications for each license
-    oneDayLicenses.forEach(license => sendEmailNotification(license, "oneDay"));
-    sevenDayLicenses.forEach(license => sendEmailNotification(license, "sevenDays"));
-    thirtyDayLicenses.forEach(license => sendEmailNotification(license, "thirtyDays"));
+    // This is now handled by the scheduler
+    console.log("🕐 sendAutomaticNotifications called (now handled by scheduler)");
+  };
+
+  const triggerManualCheck = () => {
+    console.log("🕐 Manual notification check triggered from UI");
+    notificationScheduler.triggerManualCheck(
+      licenses,
+      emailSettings,
+      notificationSettings,
+      sendEmailNotification
+    );
+    toast.success("Manual notification check completed");
   };
 
   const findLicensesForNotification = (expiryDate: Date, rangeStart: Date) => {
@@ -184,7 +206,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       return;
     }
     
-    console.log(`Sending ${templateType} notification to ${recipientEmail} for ${license.name}:`, emailContent);
+    console.log(`📧 Sending ${templateType} notification to ${recipientEmail} for ${license.name}:`, emailContent);
     
     // In a real app, this would actually send the email
     // This is where you would integrate with a real email sending service
@@ -201,7 +223,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       updateNotificationSettings,
       testEmailConnection,
       sendAutomaticNotifications,
-      sendManualNotification
+      sendManualNotification,
+      triggerManualCheck
     }}>
       {children}
     </NotificationContext.Provider>
