@@ -1,4 +1,3 @@
-
 import { License } from '@/types';
 import { fetchAPI } from './base';
 
@@ -16,6 +15,11 @@ const prepareLicenseData = (license: Omit<License, 'id' | 'createdAt' | 'updated
     preparedLicense.renewalDate = preparedLicense.renewalDate.toISOString();
   }
   
+  // Set default costType if not provided (for backward compatibility)
+  if (!preparedLicense.costType) {
+    preparedLicense.costType = 'monthly';
+  }
+  
   return preparedLicense;
 };
 
@@ -27,7 +31,9 @@ const processLicense = (license: any): License => {
     startDate: new Date(license.startDate),
     renewalDate: new Date(license.renewalDate),
     createdAt: new Date(license.createdAt),
-    updatedAt: new Date(license.updatedAt)
+    updatedAt: new Date(license.updatedAt),
+    // Set default costType if not provided (for backward compatibility)
+    costType: license.costType || 'monthly'
   };
 };
 

@@ -19,15 +19,15 @@ interface MonthlyCostCardProps {
 }
 
 const MonthlyCostCard: React.FC<MonthlyCostCardProps> = ({ data }) => {
-  // Calculate total cost
-  const totalCost = data.reduce((sum, item) => sum + item.value, 0);
+  // Calculate total cost (monthly equivalent)
+  const totalMonthlyCost = data.reduce((sum, item) => sum + item.value, 0);
   
   return (
     <Card className="h-full">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Monthly Cost by Department</span>
-          <span className="text-lg">${totalCost.toLocaleString()}</span>
+          <span className="text-lg">${totalMonthlyCost.toLocaleString()}</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -46,11 +46,14 @@ const MonthlyCostCard: React.FC<MonthlyCostCardProps> = ({ data }) => {
               <XAxis dataKey="name" />
               <YAxis />
               <Tooltip 
-                formatter={(value: number) => [`$${value.toLocaleString()}`, "Cost"]}
+                formatter={(value: number) => [`$${value.toLocaleString()}`, "Monthly Cost"]}
               />
               <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+        </div>
+        <div className="text-xs text-muted-foreground mt-2 text-center">
+          Note: Yearly costs are converted to monthly equivalent (yearly ÷ 12)
         </div>
       </CardContent>
     </Card>

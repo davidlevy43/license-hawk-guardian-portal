@@ -33,6 +33,12 @@ export enum PaymentMethod {
   PAYPAL = "paypal"
 }
 
+export enum CostType {
+  MONTHLY = "monthly",
+  YEARLY = "yearly",
+  ONE_TIME = "one_time"
+}
+
 export interface License {
   id: string;
   name: string;
@@ -42,6 +48,7 @@ export interface License {
   startDate: Date;
   renewalDate: Date;
   monthlyCost: number;
+  costType: CostType;
   paymentMethod: PaymentMethod;
   serviceOwner: string;
   serviceOwnerEmail: string;

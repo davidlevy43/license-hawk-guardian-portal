@@ -53,7 +53,12 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Update status for each license based on renewal date
       const licensesWithUpdatedStatus = apiLicenses.map(license => {
         const calculatedStatus = getStatusFromDate(license.renewalDate);
-        const updatedLicense = { ...license, status: calculatedStatus };
+        const updatedLicense = { 
+          ...license, 
+          status: calculatedStatus,
+          // For backward compatibility, set default costType if missing
+          costType: license.costType || 'monthly'
+        };
         
         console.log(`License "${license.name}": renewal ${license.renewalDate}, status ${calculatedStatus}`);
         

@@ -1,7 +1,7 @@
 
 import React, { useMemo } from "react";
 import { useLicenses } from "@/context/LicenseContext";
-import { LicenseStatus } from "@/types";
+import { LicenseStatus, CostType } from "@/types";
 import { Database, Clock, AlertCircle } from "lucide-react";
 import { addDays, isPast, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import StatCard from "@/components/dashboard/StatCard";
@@ -21,6 +21,8 @@ const Dashboard: React.FC = () => {
         pendingRenewal: 0,
         expiredLicenses: 0,
         totalMonthlyCost: 0,
+        totalYearlyCost: 0,
+        totalOneTimeCost: 0,
       };
     }
 
@@ -45,18 +47,44 @@ const Dashboard: React.FC = () => {
       return !isPast(renewalDate) && !isWithinInterval(renewalDate, { start: today, end: thirtyDaysFromNow });
     }).length;
 
+    // Calculate costs by type
+    const costs = licenses.reduce((acc, license) => {
+      const cost = license.monthlyCost || 0;
+      
+      switch (license.costType) {
+        case CostType.MONTHLY:
+          acc.monthly += cost;
+          break;
+        case CostType.YEARLY:
+          acc.yearly += cost;
+          break;
+        case CostType.ONE_TIME:
+          acc.oneTime += cost;
+          break;
+        default:
+          // For backward compatibility, treat undefined as monthly
+          acc.monthly += cost;
+          break;
+      }
+      
+      return acc;
+    }, { monthly: 0, yearly: 0, oneTime: 0 });
+
     console.log("📊 Dashboard stats calculation:");
     console.log("Total licenses:", licenses.length);
     console.log("Pending renewal (next 30 days):", pendingRenewal);
     console.log("Expired licenses:", expiredLicenses);
     console.log("Active licenses:", activeLicenses);
+    console.log("Costs by type:", costs);
 
     return {
       totalLicenses: licenses.length,
       activeLicenses,
       pendingRenewal,
       expiredLicenses,
-      totalMonthlyCost: licenses.reduce((acc, license) => acc + license.monthlyCost, 0),
+      totalMonthlyCost: costs.monthly,
+      totalYearlyCost: costs.yearly,
+      totalOneTimeCost: costs.oneTime,
     };
   }, [licenses]);
 
@@ -82,7 +110,7 @@ const Dashboard: React.FC = () => {
     [stats]
   );
 
-  // Prepare data for department cost chart
+  // Prepare data for department cost chart (convert all to monthly equivalent for comparison)
   const departmentCostData = useMemo(() => {
     const departmentCosts: Record<string, number> = {};
 
@@ -90,7 +118,26 @@ const Dashboard: React.FC = () => {
       if (!departmentCosts[license.department]) {
         departmentCosts[license.department] = 0;
       }
-      departmentCosts[license.department] += license.monthlyCost;
+      
+      const cost = license.monthlyCost || 0;
+      
+      // Convert all costs to monthly equivalent for comparison
+      switch (license.costType) {
+        case CostType.MONTHLY:
+          departmentCosts[license.department] += cost;
+          break;
+        case CostType.YEARLY:
+          departmentCosts[license.department] += cost / 12; // Convert yearly to monthly
+          break;
+        case CostType.ONE_TIME:
+          // For one-time costs, we don't add to monthly comparison
+          // but we could show them separately if needed
+          break;
+        default:
+          // For backward compatibility
+          departmentCosts[license.department] += cost;
+          break;
+      }
     });
 
     return Object.entries(departmentCosts).map(([name, value]) => ({
@@ -116,7 +163,7 @@ const Dashboard: React.FC = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
         <StatCard
           title="Total Licenses"
           value={stats.totalLicenses}
@@ -137,10 +184,24 @@ const Dashboard: React.FC = () => {
         <StatCard
           title="Monthly Cost"
           value={`$${stats.totalMonthlyCost.toLocaleString()}`}
-          description="Total monthly cost for all licenses"
-          trend={{ value: 4.5, isPositive: false }}
+          description="Recurring monthly costs"
+        />
+        <StatCard
+          title="Yearly Cost"
+          value={`$${stats.totalYearlyCost.toLocaleString()}`}
+          description="Annual license costs"
         />
       </div>
+
+      {stats.totalOneTimeCost > 0 && (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <StatCard
+            title="One-time Costs"
+            value={`$${stats.totalOneTimeCost.toLocaleString()}`}
+            description="Total one-time license costs"
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <LicenseChart data={chartData} />

@@ -1,10 +1,11 @@
+
 import React from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
-import { License, LicenseType, LicenseStatus, PaymentMethod } from "@/types";
+import { License, LicenseType, LicenseStatus, PaymentMethod, CostType } from "@/types";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,7 +48,8 @@ const licenseFormSchema = z.object({
   supplier: z.string().min(1, "Supplier is required"),
   startDate: z.date(),
   renewalDate: z.date(),
-  monthlyCost: z.coerce.number().min(0, "Monthly cost must be 0 or greater"),
+  monthlyCost: z.coerce.number().min(0, "Cost must be 0 or greater"),
+  costType: z.nativeEnum(CostType),
   paymentMethod: z.nativeEnum(PaymentMethod),
   serviceOwner: z.string().min(1, "Service owner is required"),
   serviceOwnerEmail: z.string().email("Please enter a valid email address").min(1, "Service owner email is required"),
@@ -76,6 +78,7 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
       startDate: new Date(),
       renewalDate: new Date(),
       monthlyCost: 0,
+      costType: CostType.MONTHLY,
       paymentMethod: PaymentMethod.CREDIT_CARD,
       serviceOwner: "",
       serviceOwnerEmail: currentUser?.email || "",
@@ -87,6 +90,21 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
 
   // Show credit card digits field only when payment method is credit card
   const showCreditCardField = form.watch("paymentMethod") === PaymentMethod.CREDIT_CARD;
+  const costType = form.watch("costType");
+
+  // Get cost label based on cost type
+  const getCostLabel = () => {
+    switch (costType) {
+      case CostType.MONTHLY:
+        return "Monthly Cost ($)";
+      case CostType.YEARLY:
+        return "Yearly Cost ($)";
+      case CostType.ONE_TIME:
+        return "One-time Cost ($)";
+      default:
+        return "Cost ($)";
+    }
+  };
 
   return (
     <Form {...form}>
@@ -251,10 +269,36 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
             
             <FormField
               control={form.control}
+              name="costType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Cost Type</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select cost type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value={CostType.MONTHLY}>Monthly</SelectItem>
+                      <SelectItem value={CostType.YEARLY}>Yearly</SelectItem>
+                      <SelectItem value={CostType.ONE_TIME}>One-time</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
               name="monthlyCost"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Monthly Cost ($)</FormLabel>
+                  <FormLabel>{getCostLabel()}</FormLabel>
                   <FormControl>
                     <Input 
                       type="number" 
