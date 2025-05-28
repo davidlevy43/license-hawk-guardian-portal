@@ -1,5 +1,6 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { License, LicenseStatus, LicenseType, PaymentMethod } from "@/types";
+import { License, LicenseStatus, LicenseType, PaymentMethod, CostType } from "@/types";
 import { format, addMonths, isPast, addDays, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { toast } from "sonner";
 import { LicenseAPI } from "@/services/api";
@@ -56,8 +57,8 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const updatedLicense = { 
           ...license, 
           status: calculatedStatus,
-          // For backward compatibility, set default costType if missing
-          costType: license.costType || 'monthly'
+          // Ensure costType is properly typed
+          costType: (license.costType as CostType) || CostType.MONTHLY
         };
         
         console.log(`License "${license.name}": renewal ${license.renewalDate}, status ${calculatedStatus}`);

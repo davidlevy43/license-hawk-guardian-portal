@@ -107,6 +107,14 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
     }
   };
 
+  // Format credit card display
+  const formatCreditCard = (license: License) => {
+    if (license.paymentMethod !== PaymentMethod.CREDIT_CARD || !license.creditCardDigits) {
+      return "-";
+    }
+    return `****${license.creditCardDigits}`;
+  };
+
   // Column definition for sortable headers
   const SortableHeader = ({
     field,
@@ -162,6 +170,8 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
                 <SortableHeader field="type">Type</SortableHeader>
                 <SortableHeader field="department">Department</SortableHeader>
                 <SortableHeader field="supplier">Supplier</SortableHeader>
+                <SortableHeader field="serviceOwner">Service Owner</SortableHeader>
+                <TableHead>Credit Card</TableHead>
                 <SortableHeader field="renewalDate">Renewal Date</SortableHeader>
                 <SortableHeader field="monthlyCost">Monthly Cost</SortableHeader>
                 <SortableHeader field="status">Status</SortableHeader>
@@ -172,7 +182,7 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
               {sortedLicenses.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={8}
+                    colSpan={10}
                     className="h-24 text-center text-muted-foreground"
                   >
                     No licenses found
@@ -187,6 +197,17 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
                     </TableCell>
                     <TableCell>{license.department}</TableCell>
                     <TableCell>{license.supplier}</TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="font-medium">{license.serviceOwner}</div>
+                        <div className="text-sm text-muted-foreground">{license.serviceOwnerEmail}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        {formatCreditCard(license)}
+                      </div>
+                    </TableCell>
                     <TableCell>{formatDate(license.renewalDate)}</TableCell>
                     <TableCell>${license.monthlyCost.toFixed(2)}</TableCell>
                     <TableCell>{getStatusBadge(license.status)}</TableCell>

@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS licenses (
     start_date DATE NOT NULL,
     renewal_date DATE NOT NULL,
     monthly_cost DECIMAL(10,2) NOT NULL,
+    cost_type VARCHAR(50) NOT NULL DEFAULT 'monthly',
     payment_method VARCHAR(100) NOT NULL,
     service_owner VARCHAR(255) NOT NULL,
     service_owner_email VARCHAR(255),
