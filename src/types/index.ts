@@ -23,7 +23,8 @@ export enum LicenseType {
   SOFTWARE = "software",
   HARDWARE = "hardware",
   SERVICE = "service",
-  SUBSCRIPTION = "subscription"
+  SUBSCRIPTION = "subscription",
+  AGREEMENT = "agreement"
 }
 
 export enum PaymentMethod {
