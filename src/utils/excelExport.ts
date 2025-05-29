@@ -1,9 +1,27 @@
-
 import * as XLSX from 'xlsx';
 import { License, LicenseStatus, LicenseType, PaymentMethod, CostType } from '@/types';
 import { format } from 'date-fns';
 
 export const exportLicensesToExcel = (licenses: License[]) => {
+  // Helper function to format credit card for export
+  const formatCreditCardForExport = (license: License) => {
+    console.log(`🔍 Excel export - Credit card info for ${license.name}:`, {
+      paymentMethod: license.paymentMethod,
+      creditCardDigits: license.creditCardDigits,
+      hasDigits: !!license.creditCardDigits
+    });
+    
+    if (license.paymentMethod !== PaymentMethod.CREDIT_CARD) {
+      return '-';
+    }
+    
+    if (!license.creditCardDigits || license.creditCardDigits.trim() === "") {
+      return 'לא צוין';
+    }
+    
+    return `****${license.creditCardDigits}`;
+  };
+
   // Prepare data for Excel export
   const excelData = licenses.map(license => ({
     'שם הרישיון': license.name,
@@ -17,9 +35,7 @@ export const exportLicensesToExcel = (licenses: License[]) => {
     'עלות חודשית': `$${license.monthlyCost.toFixed(2)}`,
     'סוג עלות': getCostTypeLabel(license.costType),
     'אמצעי תשלום': getPaymentMethodLabel(license.paymentMethod),
-    'כרטיס אשראי': license.paymentMethod === PaymentMethod.CREDIT_CARD && license.creditCardDigits 
-      ? `****${license.creditCardDigits}` 
-      : '-',
+    'כרטיס אשראי': formatCreditCardForExport(license),
     'סטטוס': getStatusLabel(license.status),
     'הערות': license.notes || '',
     'תאריך יצירה': format(license.createdAt, 'dd/MM/yyyy HH:mm'),

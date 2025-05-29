@@ -119,11 +119,22 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
     }
   };
 
-  // Format credit card display
+  // Format credit card display with better debugging
   const formatCreditCard = (license: License) => {
-    if (license.paymentMethod !== PaymentMethod.CREDIT_CARD || !license.creditCardDigits) {
+    console.log(`🔍 Credit card info for ${license.name}:`, {
+      paymentMethod: license.paymentMethod,
+      creditCardDigits: license.creditCardDigits,
+      hasDigits: !!license.creditCardDigits
+    });
+    
+    if (license.paymentMethod !== PaymentMethod.CREDIT_CARD) {
       return "-";
     }
+    
+    if (!license.creditCardDigits || license.creditCardDigits.trim() === "") {
+      return "לא צוין";
+    }
+    
     return `****${license.creditCardDigits}`;
   };
 
