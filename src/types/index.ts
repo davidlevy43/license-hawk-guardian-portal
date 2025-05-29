@@ -1,4 +1,3 @@
-
 export enum UserRole {
   ADMIN = "admin",
   USER = "user"
@@ -24,7 +23,8 @@ export enum LicenseType {
   HARDWARE = "hardware",
   SERVICE = "service",
   SUBSCRIPTION = "subscription",
-  AGREEMENT = "agreement"
+  AGREEMENT = "agreement",
+  CERTIFICATE = "certificate"
 }
 
 export enum PaymentMethod {
