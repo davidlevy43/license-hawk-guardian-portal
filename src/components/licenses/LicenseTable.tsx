@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useLicenses } from "@/context/LicenseContext";
 import { License, LicenseStatus, LicenseType, PaymentMethod } from "@/types";
 import { format } from "date-fns";
-import { Edit, Trash2, Search, SortAsc, SortDesc } from "lucide-react";
+import { Edit, Trash2, Search, SortAsc, SortDesc, Download } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -23,6 +23,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
+import { exportLicensesToExcel } from "@/utils/excelExport";
+import { toast } from "sonner";
 
 interface LicenseTableProps {
   onEdit: (license: License) => void;
@@ -75,6 +77,16 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
     } else {
       setSortField(field);
       setSortDirection("asc");
+    }
+  };
+
+  const handleExportToExcel = () => {
+    try {
+      const filename = exportLicensesToExcel(sortedLicenses);
+      toast.success(`הקובץ ${filename} יוצא בהצלחה`);
+    } catch (error) {
+      console.error("Error exporting to Excel:", error);
+      toast.error("שגיאה בייצוא הקובץ");
     }
   };
 
@@ -156,8 +168,18 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
             className="pl-10"
           />
         </div>
-        <div className="text-sm text-muted-foreground">
-          Showing {sortedLicenses.length} of {licenses.length} licenses
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            onClick={handleExportToExcel}
+            className="flex items-center gap-2"
+          >
+            <Download className="h-4 w-4" />
+            ייצא ל-Excel
+          </Button>
+          <div className="text-sm text-muted-foreground">
+            Showing {sortedLicenses.length} of {licenses.length} licenses
+          </div>
         </div>
       </div>
 
