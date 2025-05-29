@@ -1,6 +1,6 @@
 
 import Dexie, { Table } from 'dexie';
-import { License, LicenseStatus, LicenseType, PaymentMethod, User, UserRole } from '@/types';
+import { License, LicenseStatus, LicenseType, PaymentMethod, User, UserRole, CostType } from '@/types';
 import { format, addMonths } from 'date-fns';
 
 // Define the database
@@ -79,6 +79,7 @@ const generateMockLicenses = (): License[] => {
       startDate,
       renewalDate,
       monthlyCost: Math.floor(Math.random() * 5000) + 100,
+      costType: Object.values(CostType)[Math.floor(Math.random() * Object.values(CostType).length)],
       paymentMethod: Object.values(PaymentMethod)[Math.floor(Math.random() * Object.values(PaymentMethod).length)],
       serviceOwner: owners[randomOwnerIndex].name,
       serviceOwnerEmail: owners[randomOwnerIndex].email,
