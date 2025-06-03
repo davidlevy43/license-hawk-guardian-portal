@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Control, UseFormWatch } from "react-hook-form";
 import { format } from "date-fns";
@@ -152,7 +151,6 @@ const DatesAndCostsSection: React.FC<DatesAndCostsSectionProps> = ({ control, wa
                 field.onChange(value);
               }}
               value={field.value}
-              defaultValue={field.value}
             >
               <FormControl>
                 <SelectTrigger>
@@ -200,7 +198,6 @@ const DatesAndCostsSection: React.FC<DatesAndCostsSectionProps> = ({ control, wa
                 field.onChange(value);
               }}
               value={field.value}
-              defaultValue={field.value}
             >
               <FormControl>
                 <SelectTrigger>
