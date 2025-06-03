@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -92,6 +91,17 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
   const showCreditCardField = form.watch("paymentMethod") === PaymentMethod.CREDIT_CARD;
   const costType = form.watch("costType");
 
+  // Debug form submission
+  const handleSubmit = (data: FormValues) => {
+    console.log("🔍 Form submission data:", {
+      costType: data.costType,
+      paymentMethod: data.paymentMethod,
+      creditCardDigits: data.creditCardDigits,
+      allData: data
+    });
+    onSubmit(data);
+  };
+
   // Get cost label based on cost type
   const getCostLabel = () => {
     switch (costType) {
@@ -108,7 +118,7 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Basic Information */}
           <div className="space-y-4">
@@ -274,8 +284,11 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
                 <FormItem>
                   <FormLabel>Cost Type</FormLabel>
                   <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
+                    onValueChange={(value) => {
+                      console.log("🔍 Cost type changed to:", value);
+                      field.onChange(value);
+                    }}
+                    value={field.value}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -318,8 +331,11 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
                 <FormItem>
                   <FormLabel>Payment Method</FormLabel>
                   <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
+                    onValueChange={(value) => {
+                      console.log("🔍 Payment method changed to:", value);
+                      field.onChange(value);
+                    }}
+                    value={field.value}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -355,6 +371,7 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
                           // Only allow numbers
                           const value = e.target.value.replace(/[^0-9]/g, '');
                           if (value.length <= 4) {
+                            console.log("🔍 Credit card digits changed to:", value);
                             field.onChange(value);
                           }
                         }}

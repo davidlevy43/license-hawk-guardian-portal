@@ -1,3 +1,4 @@
+
 import { License } from '@/types';
 import { fetchAPI } from './base';
 
@@ -20,11 +21,25 @@ const prepareLicenseData = (license: Omit<License, 'id' | 'createdAt' | 'updated
     preparedLicense.costType = 'monthly';
   }
   
+  console.log("🔍 Prepared license data for API:", {
+    costType: preparedLicense.costType,
+    paymentMethod: preparedLicense.paymentMethod,
+    creditCardDigits: preparedLicense.creditCardDigits,
+    hasDigits: !!preparedLicense.creditCardDigits
+  });
+  
   return preparedLicense;
 };
 
 // Process license from API to client
 const processLicense = (license: any): License => {
+  console.log("🔍 Processing license from API:", {
+    name: license.name,
+    costType: license.costType,
+    paymentMethod: license.paymentMethod,
+    creditCardDigits: license.creditCardDigits
+  });
+  
   return {
     ...license,
     // Convert string dates to Date objects
@@ -80,7 +95,10 @@ export const LicenseAPI = {
   
   update: async (id: string, license: Partial<License>) => {
     try {
+      console.log('Updating license:', id, license);
       const preparedData = prepareLicenseData(license);
+      console.log('Prepared update data:', preparedData);
+      
       const updatedLicense = await fetchAPI<any>(`/licenses/${id}`, {
         method: 'PATCH',
         body: JSON.stringify(preparedData),
