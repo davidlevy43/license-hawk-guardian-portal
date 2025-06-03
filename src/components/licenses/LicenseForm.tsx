@@ -47,21 +47,21 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
   
   const form = useForm<FormValues>({
     resolver: zodResolver(licenseFormSchema),
-    defaultValues: initialData || {
-      name: "",
-      type: LicenseType.SOFTWARE,
-      department: "",
-      supplier: "",
-      startDate: new Date(),
-      renewalDate: new Date(),
-      monthlyCost: 0,
-      costType: CostType.MONTHLY,
-      paymentMethod: PaymentMethod.CREDIT_CARD,
-      serviceOwner: "",
-      serviceOwnerEmail: currentUser?.email || "",
-      status: LicenseStatus.ACTIVE,
-      notes: "",
-      creditCardDigits: "",
+    defaultValues: {
+      name: initialData?.name || "",
+      type: initialData?.type || LicenseType.SOFTWARE,
+      department: initialData?.department || "",
+      supplier: initialData?.supplier || "",
+      startDate: initialData?.startDate || new Date(),
+      renewalDate: initialData?.renewalDate || new Date(),
+      monthlyCost: initialData?.monthlyCost || 0,
+      costType: initialData?.costType || CostType.MONTHLY,
+      paymentMethod: initialData?.paymentMethod || PaymentMethod.CREDIT_CARD,
+      serviceOwner: initialData?.serviceOwner || "",
+      serviceOwnerEmail: initialData?.serviceOwnerEmail || currentUser?.email || "",
+      status: initialData?.status || LicenseStatus.ACTIVE,
+      notes: initialData?.notes || "",
+      creditCardDigits: initialData?.creditCardDigits || "",
     },
   });
 
