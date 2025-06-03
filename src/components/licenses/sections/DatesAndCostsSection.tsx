@@ -34,12 +34,19 @@ interface DatesAndCostsSectionProps {
 }
 
 const DatesAndCostsSection: React.FC<DatesAndCostsSectionProps> = ({ control, watch }) => {
-  const showCreditCardField = watch("paymentMethod") === PaymentMethod.CREDIT_CARD;
-  const costType = watch("costType");
+  const watchedPaymentMethod = watch("paymentMethod");
+  const watchedCostType = watch("costType");
+  
+  console.log("🔍 Current watched values:", {
+    paymentMethod: watchedPaymentMethod,
+    costType: watchedCostType
+  });
+  
+  const showCreditCardField = watchedPaymentMethod === PaymentMethod.CREDIT_CARD;
 
   // Get cost label based on cost type
   const getCostLabel = () => {
-    switch (costType) {
+    switch (watchedCostType) {
       case CostType.MONTHLY:
         return "Monthly Cost ($)";
       case CostType.YEARLY:
@@ -145,6 +152,7 @@ const DatesAndCostsSection: React.FC<DatesAndCostsSectionProps> = ({ control, wa
                 field.onChange(value);
               }}
               value={field.value}
+              defaultValue={field.value}
             >
               <FormControl>
                 <SelectTrigger>
@@ -192,6 +200,7 @@ const DatesAndCostsSection: React.FC<DatesAndCostsSectionProps> = ({ control, wa
                 field.onChange(value);
               }}
               value={field.value}
+              defaultValue={field.value}
             >
               <FormControl>
                 <SelectTrigger>

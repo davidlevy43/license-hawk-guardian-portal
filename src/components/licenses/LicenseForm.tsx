@@ -63,6 +63,7 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
       notes: initialData?.notes || "",
       creditCardDigits: initialData?.creditCardDigits || "",
     },
+    mode: "onChange", // This ensures the form updates immediately on changes
   });
 
   // Debug form submission
