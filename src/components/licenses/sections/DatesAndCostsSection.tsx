@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Control, UseFormWatch } from "react-hook-form";
 import { format } from "date-fns";
@@ -48,13 +47,13 @@ const DatesAndCostsSection: React.FC<DatesAndCostsSectionProps> = ({ control, wa
   const getCostLabel = () => {
     switch (costType) {
       case CostType.MONTHLY:
-        return "Monthly Cost ($)";
+        return "עלות חודשית ($)";
       case CostType.YEARLY:
-        return "Yearly Cost ($)";
+        return "עלות שנתית ($)";
       case CostType.ONE_TIME:
-        return "One-time Cost ($)";
+        return "עלות חד פעמית ($)";
       default:
-        return "Cost ($)";
+        return "עלות ($)";
     }
   };
 
@@ -145,7 +144,7 @@ const DatesAndCostsSection: React.FC<DatesAndCostsSectionProps> = ({ control, wa
         name="costType"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Cost Type</FormLabel>
+            <FormLabel>סוג חיוב</FormLabel>
             <Select
               onValueChange={(value) => {
                 console.log("🔍 Cost type changing to:", value);
@@ -155,13 +154,13 @@ const DatesAndCostsSection: React.FC<DatesAndCostsSectionProps> = ({ control, wa
             >
               <FormControl>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select cost type" />
+                  <SelectValue placeholder="בחר סוג חיוב" />
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                <SelectItem value={CostType.MONTHLY}>Monthly</SelectItem>
-                <SelectItem value={CostType.YEARLY}>Yearly</SelectItem>
-                <SelectItem value={CostType.ONE_TIME}>One-time</SelectItem>
+                <SelectItem value={CostType.MONTHLY}>חודשי</SelectItem>
+                <SelectItem value={CostType.YEARLY}>שנתי</SelectItem>
+                <SelectItem value={CostType.ONE_TIME}>חד פעמי</SelectItem>
               </SelectContent>
             </Select>
             <FormMessage />
@@ -192,7 +191,7 @@ const DatesAndCostsSection: React.FC<DatesAndCostsSectionProps> = ({ control, wa
         name="paymentMethod"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Payment Method</FormLabel>
+            <FormLabel>אמצעי תשלום</FormLabel>
             <Select
               onValueChange={(value) => {
                 console.log("🔍 Payment method changing to:", value);
@@ -202,13 +201,17 @@ const DatesAndCostsSection: React.FC<DatesAndCostsSectionProps> = ({ control, wa
             >
               <FormControl>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select payment method" />
+                  <SelectValue placeholder="בחר אמצעי תשלום" />
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
                 {Object.values(PaymentMethod).map((method) => (
                   <SelectItem key={method} value={method}>
-                    {method.split("_").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ")}
+                    {method === PaymentMethod.CREDIT_CARD ? "כרטיס אשראי" :
+                     method === PaymentMethod.BANK_TRANSFER ? "העברה בנקאית" :
+                     method === PaymentMethod.PURCHASE_ORDER ? "הזמנת רכש" :
+                     method === PaymentMethod.PAYPAL ? "PayPal" :
+                     method.split("_").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ")}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -224,7 +227,7 @@ const DatesAndCostsSection: React.FC<DatesAndCostsSectionProps> = ({ control, wa
           name="creditCardDigits"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Credit Card (Last 4 digits)</FormLabel>
+              <FormLabel>כרטיס אשראי (4 ספרות אחרונות)</FormLabel>
               <FormControl>
                 <Input
                   placeholder="1234"
