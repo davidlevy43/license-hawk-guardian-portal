@@ -45,6 +45,12 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
 }) => {
   const { currentUser } = useAuth();
   
+  console.log("🔍 Form initialized with initial data:", {
+    costType: initialData?.costType,
+    paymentMethod: initialData?.paymentMethod,
+    creditCardDigits: initialData?.creditCardDigits
+  });
+  
   const form = useForm<FormValues>({
     resolver: zodResolver(licenseFormSchema),
     defaultValues: {
@@ -68,14 +74,20 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
 
   // Debug form submission
   const handleSubmit = (data: FormValues) => {
-    console.log("🔍 Form submission data:", {
-      costType: data.costType,
-      paymentMethod: data.paymentMethod,
-      creditCardDigits: data.creditCardDigits,
-      allData: data
-    });
+    console.log("🔍 Form submission - Full data:", data);
+    console.log("🔍 Form submission - Cost type:", data.costType, typeof data.costType);
+    console.log("🔍 Form submission - Payment method:", data.paymentMethod, typeof data.paymentMethod);
+    console.log("🔍 Form submission - Credit card digits:", data.creditCardDigits);
     onSubmit(data);
   };
+
+  // Debug form values in real time
+  const watchedValues = form.watch();
+  console.log("🔍 Current form values:", {
+    costType: watchedValues.costType,
+    paymentMethod: watchedValues.paymentMethod,
+    creditCardDigits: watchedValues.creditCardDigits
+  });
 
   return (
     <Form {...form}>

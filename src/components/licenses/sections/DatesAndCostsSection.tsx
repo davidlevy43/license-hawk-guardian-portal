@@ -38,7 +38,8 @@ const DatesAndCostsSection: React.FC<DatesAndCostsSectionProps> = ({ control, wa
   
   console.log("🔍 Current watched values:", {
     paymentMethod: watchedPaymentMethod,
-    costType: watchedCostType
+    costType: watchedCostType,
+    showCreditCard: watchedPaymentMethod === PaymentMethod.CREDIT_CARD
   });
   
   const showCreditCardField = watchedPaymentMethod === PaymentMethod.CREDIT_CARD;
@@ -147,10 +148,10 @@ const DatesAndCostsSection: React.FC<DatesAndCostsSectionProps> = ({ control, wa
             <FormLabel>Cost Type</FormLabel>
             <Select
               onValueChange={(value) => {
-                console.log("🔍 Cost type changed to:", value);
+                console.log("🔍 Cost type changing from", field.value, "to:", value);
                 field.onChange(value);
               }}
-              value={field.value}
+              value={field.value || CostType.MONTHLY}
             >
               <FormControl>
                 <SelectTrigger>
@@ -194,10 +195,10 @@ const DatesAndCostsSection: React.FC<DatesAndCostsSectionProps> = ({ control, wa
             <FormLabel>Payment Method</FormLabel>
             <Select
               onValueChange={(value) => {
-                console.log("🔍 Payment method changed to:", value);
+                console.log("🔍 Payment method changing from", field.value, "to:", value);
                 field.onChange(value);
               }}
-              value={field.value}
+              value={field.value || PaymentMethod.CREDIT_CARD}
             >
               <FormControl>
                 <SelectTrigger>
