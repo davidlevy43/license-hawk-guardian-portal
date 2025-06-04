@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Control, UseFormWatch } from "react-hook-form";
 import { format } from "date-fns";
@@ -33,20 +34,19 @@ interface DatesAndCostsSectionProps {
 }
 
 const DatesAndCostsSection: React.FC<DatesAndCostsSectionProps> = ({ control, watch }) => {
-  const watchedPaymentMethod = watch("paymentMethod");
-  const watchedCostType = watch("costType");
+  // Watch the payment method to show/hide credit card field
+  const paymentMethod = watch("paymentMethod");
+  const costType = watch("costType");
   
-  console.log("🔍 Current watched values:", {
-    paymentMethod: watchedPaymentMethod,
-    costType: watchedCostType,
-    showCreditCard: watchedPaymentMethod === PaymentMethod.CREDIT_CARD
+  console.log("🔍 DatesAndCostsSection - Current values:", {
+    paymentMethod,
+    costType,
+    showCreditCard: paymentMethod === PaymentMethod.CREDIT_CARD
   });
-  
-  const showCreditCardField = watchedPaymentMethod === PaymentMethod.CREDIT_CARD;
 
   // Get cost label based on cost type
   const getCostLabel = () => {
-    switch (watchedCostType) {
+    switch (costType) {
       case CostType.MONTHLY:
         return "Monthly Cost ($)";
       case CostType.YEARLY:
@@ -148,10 +148,10 @@ const DatesAndCostsSection: React.FC<DatesAndCostsSectionProps> = ({ control, wa
             <FormLabel>Cost Type</FormLabel>
             <Select
               onValueChange={(value) => {
-                console.log("🔍 Cost type changing from", field.value, "to:", value);
+                console.log("🔍 Cost type changing to:", value);
                 field.onChange(value);
               }}
-              value={field.value || CostType.MONTHLY}
+              value={field.value}
             >
               <FormControl>
                 <SelectTrigger>
@@ -195,10 +195,10 @@ const DatesAndCostsSection: React.FC<DatesAndCostsSectionProps> = ({ control, wa
             <FormLabel>Payment Method</FormLabel>
             <Select
               onValueChange={(value) => {
-                console.log("🔍 Payment method changing from", field.value, "to:", value);
+                console.log("🔍 Payment method changing to:", value);
                 field.onChange(value);
               }}
-              value={field.value || PaymentMethod.CREDIT_CARD}
+              value={field.value}
             >
               <FormControl>
                 <SelectTrigger>
@@ -218,7 +218,7 @@ const DatesAndCostsSection: React.FC<DatesAndCostsSectionProps> = ({ control, wa
         )}
       />
       
-      {showCreditCardField && (
+      {paymentMethod === PaymentMethod.CREDIT_CARD && (
         <FormField
           control={control}
           name="creditCardDigits"
