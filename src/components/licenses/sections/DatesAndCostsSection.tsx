@@ -57,6 +57,22 @@ const DatesAndCostsSection: React.FC<DatesAndCostsSectionProps> = ({ control, wa
     }
   };
 
+  // Get payment method display name
+  const getPaymentMethodLabel = (method: PaymentMethod) => {
+    switch (method) {
+      case PaymentMethod.CREDIT_CARD:
+        return "Credit Card";
+      case PaymentMethod.BANK_TRANSFER:
+        return "Bank Transfer";
+      case PaymentMethod.PURCHASE_ORDER:
+        return "Purchase Order";
+      case PaymentMethod.PAYPAL:
+        return "PayPal";
+      default:
+        return method;
+    }
+  };
+
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-medium">Dates and Costs</h3>
@@ -207,11 +223,7 @@ const DatesAndCostsSection: React.FC<DatesAndCostsSectionProps> = ({ control, wa
               <SelectContent>
                 {Object.values(PaymentMethod).map((method) => (
                   <SelectItem key={method} value={method}>
-                    {method === PaymentMethod.CREDIT_CARD ? "Credit Card" :
-                     method === PaymentMethod.BANK_TRANSFER ? "Bank Transfer" :
-                     method === PaymentMethod.PURCHASE_ORDER ? "Purchase Order" :
-                     method === PaymentMethod.PAYPAL ? "PayPal" :
-                     method.split("_").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ")}
+                    {getPaymentMethodLabel(method)}
                   </SelectItem>
                 ))}
               </SelectContent>
