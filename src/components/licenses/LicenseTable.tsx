@@ -83,10 +83,10 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
   const handleExportToExcel = () => {
     try {
       const filename = exportLicensesToExcel(sortedLicenses);
-      toast.success(`הקובץ ${filename} יוצא בהצלחה`);
+      toast.success(`File ${filename} exported successfully`);
     } catch (error) {
       console.error("Error exporting to Excel:", error);
-      toast.error("שגיאה בייצוא הקובץ");
+      toast.error("Error exporting file");
     }
   };
 
@@ -119,22 +119,26 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
     }
   };
 
-  // Format credit card display with better debugging
+  // Fixed credit card formatting function
   const formatCreditCard = (license: License) => {
     console.log(`🔍 Credit card info for ${license.name}:`, {
       paymentMethod: license.paymentMethod,
       creditCardDigits: license.creditCardDigits,
-      hasDigits: !!license.creditCardDigits
+      hasDigits: !!license.creditCardDigits,
+      typeOfDigits: typeof license.creditCardDigits
     });
     
+    // If payment method is not credit card, show dash
     if (license.paymentMethod !== PaymentMethod.CREDIT_CARD) {
       return "-";
     }
     
+    // If credit card is selected but no digits provided
     if (!license.creditCardDigits || license.creditCardDigits.trim() === "") {
-      return "לא צוין";
+      return "Not specified";
     }
     
+    // Show the formatted credit card number
     return `****${license.creditCardDigits}`;
   };
 
@@ -186,7 +190,7 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
             className="flex items-center gap-2"
           >
             <Download className="h-4 w-4" />
-            ייצא ל-Excel
+            Export to Excel
           </Button>
           <div className="text-sm text-muted-foreground">
             Showing {sortedLicenses.length} of {licenses.length} licenses
