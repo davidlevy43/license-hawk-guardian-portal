@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useLicenses } from "@/context/LicenseContext";
 import { License, LicenseStatus, LicenseType, PaymentMethod } from "@/types";
@@ -37,6 +36,20 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<keyof License>("renewalDate");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  // Debug: Log all licenses to see their structure
+  console.log("🔍 All licenses data:", licenses);
+  licenses.forEach((license, index) => {
+    console.log(`🔍 License ${index + 1} (${license.name}):`, {
+      id: license.id,
+      name: license.name,
+      paymentMethod: license.paymentMethod,
+      creditCardDigits: license.creditCardDigits,
+      hasDigits: !!license.creditCardDigits,
+      typeOfDigits: typeof license.creditCardDigits,
+      fullLicense: license
+    });
+  });
 
   // Filter licenses by search query
   const filteredLicenses = licenses.filter((license) => {
@@ -119,27 +132,41 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
     }
   };
 
-  // Fixed credit card formatting function
+  // Enhanced credit card formatting function with more debugging
   const formatCreditCard = (license: License) => {
-    console.log(`🔍 Credit card info for ${license.name}:`, {
+    console.log(`🔍 Formatting credit card for ${license.name}:`, {
       paymentMethod: license.paymentMethod,
+      paymentMethodType: typeof license.paymentMethod,
+      paymentMethodValue: JSON.stringify(license.paymentMethod),
       creditCardDigits: license.creditCardDigits,
+      creditCardDigitsType: typeof license.creditCardDigits,
+      creditCardDigitsValue: JSON.stringify(license.creditCardDigits),
       hasDigits: !!license.creditCardDigits,
-      typeOfDigits: typeof license.creditCardDigits
+      isCreditCard: license.paymentMethod === PaymentMethod.CREDIT_CARD,
+      PaymentMethodEnum: PaymentMethod.CREDIT_CARD,
+      comparison: license.paymentMethod === PaymentMethod.CREDIT_CARD ? 'MATCH' : 'NO MATCH'
     });
     
-    // If payment method is not credit card, show dash
-    if (license.paymentMethod !== PaymentMethod.CREDIT_CARD) {
+    // Check if payment method is credit card (with more flexible comparison)
+    const isCreditCard = license.paymentMethod === PaymentMethod.CREDIT_CARD || 
+                        license.paymentMethod === "credit_card" ||
+                        String(license.paymentMethod).toLowerCase() === "credit_card";
+    
+    console.log(`🔍 Is credit card check result: ${isCreditCard}`);
+    
+    if (!isCreditCard) {
       return "-";
     }
     
     // If credit card is selected but no digits provided
-    if (!license.creditCardDigits || license.creditCardDigits.trim() === "") {
+    if (!license.creditCardDigits || String(license.creditCardDigits).trim() === "") {
       return "Not specified";
     }
     
     // Show the formatted credit card number
-    return `****${license.creditCardDigits}`;
+    const digits = String(license.creditCardDigits);
+    console.log(`🔍 Returning formatted card: ****${digits}`);
+    return `****${digits}`;
   };
 
   // Column definition for sortable headers
