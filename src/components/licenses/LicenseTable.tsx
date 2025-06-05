@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useLicenses } from "@/context/LicenseContext";
 import { License, LicenseStatus, LicenseType, PaymentMethod } from "@/types";
@@ -38,17 +37,25 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
   const [sortField, setSortField] = useState<keyof License>("renewalDate");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
-  // Debug: Log all licenses to see their structure
-  console.log("🔍 All licenses data:", licenses);
+  // Comprehensive debug logging
+  console.log("🔍 LicenseTable render - Total licenses:", licenses.length);
+  console.log("🔍 All licenses full data:", JSON.stringify(licenses, null, 2));
+  
   licenses.forEach((license, index) => {
-    console.log(`🔍 License ${index + 1} (${license.name}):`, {
+    console.log(`🔍 License ${index + 1} detailed analysis:`, {
       id: license.id,
       name: license.name,
       paymentMethod: license.paymentMethod,
+      paymentMethodType: typeof license.paymentMethod,
+      paymentMethodString: String(license.paymentMethod),
       creditCardDigits: license.creditCardDigits,
+      creditCardDigitsType: typeof license.creditCardDigits,
+      creditCardDigitsString: String(license.creditCardDigits),
       hasDigits: !!license.creditCardDigits,
-      typeOfDigits: typeof license.creditCardDigits,
-      fullLicense: license
+      paymentMethodEnum: PaymentMethod.CREDIT_CARD,
+      directComparison: license.paymentMethod === PaymentMethod.CREDIT_CARD,
+      stringComparison: String(license.paymentMethod) === "credit_card",
+      allPaymentMethods: Object.values(PaymentMethod)
     });
   });
 
@@ -133,32 +140,50 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
     }
   };
 
-  // Fixed credit card formatting function
+  // Simplified and fixed credit card formatting function
   const formatCreditCard = (license: License) => {
-    console.log(`🔍 Formatting credit card for ${license.name}:`, {
+    console.log(`🔍 formatCreditCard called for ${license.name}:`, {
       paymentMethod: license.paymentMethod,
-      paymentMethodType: typeof license.paymentMethod,
       creditCardDigits: license.creditCardDigits,
-      creditCardDigitsType: typeof license.creditCardDigits,
-      hasDigits: !!license.creditCardDigits,
+      paymentMethodIsString: typeof license.paymentMethod === 'string',
+      paymentMethodValue: String(license.paymentMethod),
+      enumValue: PaymentMethod.CREDIT_CARD,
+      comparison1: license.paymentMethod === PaymentMethod.CREDIT_CARD,
+      comparison2: String(license.paymentMethod) === 'credit_card',
+      hasDigits: !!license.creditCardDigits && String(license.creditCardDigits).trim() !== ""
     });
     
-    // Check if payment method is credit card
-    if (license.paymentMethod !== PaymentMethod.CREDIT_CARD) {
-      console.log(`🔍 Not credit card payment method: ${license.paymentMethod}`);
+    // More flexible payment method check
+    const paymentMethodStr = String(license.paymentMethod).toLowerCase();
+    const isCreditCard = paymentMethodStr === 'credit_card' || 
+                        paymentMethodStr === PaymentMethod.CREDIT_CARD ||
+                        license.paymentMethod === PaymentMethod.CREDIT_CARD;
+    
+    console.log(`🔍 isCreditCard result: ${isCreditCard} for payment method: ${paymentMethodStr}`);
+    
+    if (!isCreditCard) {
+      console.log(`🔍 Not credit card, returning "-"`);
       return "-";
     }
     
-    // If credit card is selected but no digits provided
-    if (!license.creditCardDigits || String(license.creditCardDigits).trim() === "") {
-      console.log(`🔍 No credit card digits provided`);
+    // Check if digits exist and are not empty
+    const digits = license.creditCardDigits;
+    const hasValidDigits = digits && String(digits).trim() !== "";
+    
+    console.log(`🔍 Digits check:`, {
+      digits,
+      hasValidDigits,
+      stringDigits: String(digits)
+    });
+    
+    if (!hasValidDigits) {
+      console.log(`🔍 No valid digits, returning "Not specified"`);
       return "Not specified";
     }
     
-    // Show the formatted credit card number
-    const digits = String(license.creditCardDigits);
-    console.log(`🔍 Returning formatted card: ****${digits}`);
-    return `****${digits}`;
+    const formattedCard = `****${String(digits)}`;
+    console.log(`🔍 Returning formatted card: ${formattedCard}`);
+    return formattedCard;
   };
 
   // Column definition for sortable headers
