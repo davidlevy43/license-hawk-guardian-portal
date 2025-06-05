@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useLicenses } from "@/context/LicenseContext";
 import { License, LicenseStatus, LicenseType, PaymentMethod } from "@/types";
@@ -132,34 +133,25 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
     }
   };
 
-  // Enhanced credit card formatting function with more debugging
+  // Fixed credit card formatting function
   const formatCreditCard = (license: License) => {
     console.log(`🔍 Formatting credit card for ${license.name}:`, {
       paymentMethod: license.paymentMethod,
       paymentMethodType: typeof license.paymentMethod,
-      paymentMethodValue: JSON.stringify(license.paymentMethod),
       creditCardDigits: license.creditCardDigits,
       creditCardDigitsType: typeof license.creditCardDigits,
-      creditCardDigitsValue: JSON.stringify(license.creditCardDigits),
       hasDigits: !!license.creditCardDigits,
-      isCreditCard: license.paymentMethod === PaymentMethod.CREDIT_CARD,
-      PaymentMethodEnum: PaymentMethod.CREDIT_CARD,
-      comparison: license.paymentMethod === PaymentMethod.CREDIT_CARD ? 'MATCH' : 'NO MATCH'
     });
     
-    // Check if payment method is credit card (with more flexible comparison)
-    const isCreditCard = license.paymentMethod === PaymentMethod.CREDIT_CARD || 
-                        license.paymentMethod === "credit_card" ||
-                        String(license.paymentMethod).toLowerCase() === "credit_card";
-    
-    console.log(`🔍 Is credit card check result: ${isCreditCard}`);
-    
-    if (!isCreditCard) {
+    // Check if payment method is credit card
+    if (license.paymentMethod !== PaymentMethod.CREDIT_CARD) {
+      console.log(`🔍 Not credit card payment method: ${license.paymentMethod}`);
       return "-";
     }
     
     // If credit card is selected but no digits provided
     if (!license.creditCardDigits || String(license.creditCardDigits).trim() === "") {
+      console.log(`🔍 No credit card digits provided`);
       return "Not specified";
     }
     
