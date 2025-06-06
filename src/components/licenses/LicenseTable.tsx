@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useLicenses } from "@/context/LicenseContext";
 import { License, LicenseStatus, LicenseType, PaymentMethod } from "@/types";
@@ -36,28 +37,6 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<keyof License>("renewalDate");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
-
-  // Comprehensive debug logging
-  console.log("🔍 LicenseTable render - Total licenses:", licenses.length);
-  console.log("🔍 All licenses full data:", JSON.stringify(licenses, null, 2));
-  
-  licenses.forEach((license, index) => {
-    console.log(`🔍 License ${index + 1} detailed analysis:`, {
-      id: license.id,
-      name: license.name,
-      paymentMethod: license.paymentMethod,
-      paymentMethodType: typeof license.paymentMethod,
-      paymentMethodString: String(license.paymentMethod),
-      creditCardDigits: license.creditCardDigits,
-      creditCardDigitsType: typeof license.creditCardDigits,
-      creditCardDigitsString: String(license.creditCardDigits),
-      hasDigits: !!license.creditCardDigits,
-      paymentMethodEnum: PaymentMethod.CREDIT_CARD,
-      directComparison: license.paymentMethod === PaymentMethod.CREDIT_CARD,
-      stringComparison: String(license.paymentMethod) === "credit_card",
-      allPaymentMethods: Object.values(PaymentMethod)
-    });
-  });
 
   // Filter licenses by search query
   const filteredLicenses = licenses.filter((license) => {
@@ -140,48 +119,40 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
     }
   };
 
-  // Simplified and fixed credit card formatting function
+  // Fixed credit card formatting function
   const formatCreditCard = (license: License) => {
     console.log(`🔍 formatCreditCard called for ${license.name}:`, {
       paymentMethod: license.paymentMethod,
+      payment_method: (license as any).payment_method,
       creditCardDigits: license.creditCardDigits,
-      paymentMethodIsString: typeof license.paymentMethod === 'string',
-      paymentMethodValue: String(license.paymentMethod),
-      enumValue: PaymentMethod.CREDIT_CARD,
-      comparison1: license.paymentMethod === PaymentMethod.CREDIT_CARD,
-      comparison2: String(license.paymentMethod) === 'credit_card',
-      hasDigits: !!license.creditCardDigits && String(license.creditCardDigits).trim() !== ""
+      credit_card_digits: (license as any).credit_card_digits,
     });
     
-    // More flexible payment method check
-    const paymentMethodStr = String(license.paymentMethod).toLowerCase();
-    const isCreditCard = paymentMethodStr === 'credit_card' || 
-                        paymentMethodStr === PaymentMethod.CREDIT_CARD ||
-                        license.paymentMethod === PaymentMethod.CREDIT_CARD;
+    // Check both camelCase and snake_case versions of payment method
+    const paymentMethod = license.paymentMethod || (license as any).payment_method;
+    const creditCardDigits = license.creditCardDigits || (license as any).credit_card_digits;
     
-    console.log(`🔍 isCreditCard result: ${isCreditCard} for payment method: ${paymentMethodStr}`);
+    console.log(`🔍 Resolved values:`, {
+      paymentMethod,
+      creditCardDigits,
+    });
+    
+    // Check if payment method is credit card (handle both string and enum values)
+    const isCreditCard = paymentMethod === PaymentMethod.CREDIT_CARD || 
+                        paymentMethod === "credit_card";
+    
+    console.log(`🔍 isCreditCard result: ${isCreditCard}`);
     
     if (!isCreditCard) {
-      console.log(`🔍 Not credit card, returning "-"`);
       return "-";
     }
     
     // Check if digits exist and are not empty
-    const digits = license.creditCardDigits;
-    const hasValidDigits = digits && String(digits).trim() !== "";
-    
-    console.log(`🔍 Digits check:`, {
-      digits,
-      hasValidDigits,
-      stringDigits: String(digits)
-    });
-    
-    if (!hasValidDigits) {
-      console.log(`🔍 No valid digits, returning "Not specified"`);
+    if (!creditCardDigits || String(creditCardDigits).trim() === "") {
       return "Not specified";
     }
     
-    const formattedCard = `****${String(digits)}`;
+    const formattedCard = `****${String(creditCardDigits)}`;
     console.log(`🔍 Returning formatted card: ${formattedCard}`);
     return formattedCard;
   };
