@@ -160,14 +160,29 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
     }
   };
 
-  // Calculate monthly equivalent for yearly costs
+  // Calculate monthly equivalent for yearly costs - FIXED VERSION
   const getMonthlyEquivalent = (license: License) => {
     const costType = license.costType || (license as any).cost_type || CostType.MONTHLY;
     const cost = license.monthlyCost;
     
-    if (costType === CostType.YEARLY) {
-      return (cost / 12).toFixed(2);
+    console.log(`🔍 Monthly equivalent calc for ${license.name}:`, {
+      costType,
+      cost,
+      originalCostType: license.costType,
+      snakeCaseCostType: (license as any).cost_type
+    });
+    
+    // Check for yearly cost type (handle both enum and string values)
+    if (costType === CostType.YEARLY || costType === "yearly") {
+      const monthlyEquivalent = (cost / 12).toFixed(2);
+      console.log(`🔍 Yearly cost detected, monthly equivalent: ${monthlyEquivalent}`);
+      return monthlyEquivalent;
     }
+    
+    if (costType === CostType.ONE_TIME || costType === "one_time") {
+      return "-";
+    }
+    
     return cost.toFixed(2);
   };
 
