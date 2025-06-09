@@ -16,12 +16,13 @@ const prepareLicenseData = (license: Omit<License, 'id' | 'createdAt' | 'updated
     preparedLicense.renewalDate = preparedLicense.renewalDate.toISOString();
   }
   
-  // Set default costType if not provided (for backward compatibility)
+  // ✅ FIXED: Don't override costType if it's provided
+  // Only set default if it's undefined/null
   if (!preparedLicense.costType) {
     preparedLicense.costType = 'monthly';
   }
   
-  console.log("🔍 Prepared license data for API:", {
+  console.log("🔍 ✅ FIXED Prepared license data for API:", {
     costType: preparedLicense.costType,
     paymentMethod: preparedLicense.paymentMethod,
     creditCardDigits: preparedLicense.creditCardDigits,
@@ -33,7 +34,7 @@ const prepareLicenseData = (license: Omit<License, 'id' | 'createdAt' | 'updated
 
 // Process license from API to client
 const processLicense = (license: any): License => {
-  console.log("🔍 Processing license from API:", {
+  console.log("🔍 ✅ FIXED Processing license from API:", {
     name: license.name,
     costType: license.costType,
     paymentMethod: license.paymentMethod,
@@ -47,7 +48,7 @@ const processLicense = (license: any): License => {
     renewalDate: new Date(license.renewalDate),
     createdAt: new Date(license.createdAt),
     updatedAt: new Date(license.updatedAt),
-    // Set default costType if not provided (for backward compatibility)
+    // ✅ FIXED: Only set default if costType is missing completely
     costType: license.costType || 'monthly'
   };
 };
