@@ -1,7 +1,8 @@
 
+
 import React, { useState } from "react";
 import { useLicenses } from "@/context/LicenseContext";
-import { License, LicenseStatus, LicenseType, PaymentMethod } from "@/types";
+import { License, LicenseStatus, LicenseType, PaymentMethod, CostType } from "@/types";
 import { format } from "date-fns";
 import { Edit, Trash2, Search, SortAsc, SortDesc, Download } from "lucide-react";
 import {
@@ -121,27 +122,13 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
 
   // Fixed credit card formatting function
   const formatCreditCard = (license: License) => {
-    console.log(`🔍 formatCreditCard called for ${license.name}:`, {
-      paymentMethod: license.paymentMethod,
-      payment_method: (license as any).payment_method,
-      creditCardDigits: license.creditCardDigits,
-      credit_card_digits: (license as any).credit_card_digits,
-    });
-    
     // Check both camelCase and snake_case versions of payment method
     const paymentMethod = license.paymentMethod || (license as any).payment_method;
     const creditCardDigits = license.creditCardDigits || (license as any).credit_card_digits;
     
-    console.log(`🔍 Resolved values:`, {
-      paymentMethod,
-      creditCardDigits,
-    });
-    
     // Check if payment method is credit card (handle both string and enum values)
     const isCreditCard = paymentMethod === PaymentMethod.CREDIT_CARD || 
                         paymentMethod === "credit_card";
-    
-    console.log(`🔍 isCreditCard result: ${isCreditCard}`);
     
     if (!isCreditCard) {
       return "-";
@@ -153,8 +140,35 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
     }
     
     const formattedCard = `****${String(creditCardDigits)}`;
-    console.log(`🔍 Returning formatted card: ${formattedCard}`);
     return formattedCard;
+  };
+
+  // New function to format cost based on cost type
+  const formatCost = (license: License) => {
+    const costType = license.costType || (license as any).cost_type || CostType.MONTHLY;
+    const monthlyCost = license.monthlyCost;
+    
+    switch (costType) {
+      case CostType.MONTHLY:
+        return `$${monthlyCost.toFixed(2)}/month`;
+      case CostType.YEARLY:
+        return `$${monthlyCost.toFixed(2)}/year`;
+      case CostType.ONE_TIME:
+        return `$${monthlyCost.toFixed(2)} (one-time)`;
+      default:
+        return `$${monthlyCost.toFixed(2)}`;
+    }
+  };
+
+  // Calculate monthly equivalent for yearly costs
+  const getMonthlyEquivalent = (license: License) => {
+    const costType = license.costType || (license as any).cost_type || CostType.MONTHLY;
+    const cost = license.monthlyCost;
+    
+    if (costType === CostType.YEARLY) {
+      return (cost / 12).toFixed(2);
+    }
+    return cost.toFixed(2);
   };
 
   // Column definition for sortable headers
@@ -225,7 +239,8 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
                 <SortableHeader field="serviceOwner">Service Owner</SortableHeader>
                 <TableHead>Credit Card</TableHead>
                 <SortableHeader field="renewalDate">Renewal Date</SortableHeader>
-                <SortableHeader field="monthlyCost">Monthly Cost</SortableHeader>
+                <SortableHeader field="monthlyCost">Cost</SortableHeader>
+                <TableHead>Monthly Equivalent</TableHead>
                 <SortableHeader field="status">Status</SortableHeader>
                 <TableHead className="w-[100px]">Actions</TableHead>
               </TableRow>
@@ -234,7 +249,7 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
               {sortedLicenses.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={10}
+                    colSpan={11}
                     className="h-24 text-center text-muted-foreground"
                   >
                     No licenses found
@@ -261,7 +276,16 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
                       </div>
                     </TableCell>
                     <TableCell>{formatDate(license.renewalDate)}</TableCell>
-                    <TableCell>${license.monthlyCost.toFixed(2)}</TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        {formatCost(license)}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm text-muted-foreground">
+                        ${getMonthlyEquivalent(license)}/month
+                      </div>
+                    </TableCell>
                     <TableCell>{getStatusBadge(license.status)}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-1">
@@ -295,3 +319,4 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
 };
 
 export default LicenseTable;
+
