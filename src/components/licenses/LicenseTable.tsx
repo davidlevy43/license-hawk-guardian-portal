@@ -1,5 +1,4 @@
 
-
 import React, { useState } from "react";
 import { useLicenses } from "@/context/LicenseContext";
 import { License, LicenseStatus, LicenseType, PaymentMethod, CostType } from "@/types";
@@ -38,6 +37,22 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<keyof License>("renewalDate");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  // Add detailed logging for all licenses
+  console.log("🔍 LicenseTable render - Total licenses:", licenses.length);
+  console.log("🔍 All licenses full data:", licenses);
+  
+  licenses.forEach((license, index) => {
+    console.log(`🔍 License ${index + 1} detailed analysis:`, {
+      name: license.name,
+      costType: license.costType,
+      cost_type_snake: (license as any).cost_type,
+      monthlyCost: license.monthlyCost,
+      monthly_cost_snake: (license as any).monthly_cost,
+      allProperties: Object.keys(license),
+      fullObject: license
+    });
+  });
 
   // Filter licenses by search query
   const filteredLicenses = licenses.filter((license) => {
@@ -122,6 +137,13 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
 
   // Fixed credit card formatting function
   const formatCreditCard = (license: License) => {
+    console.log(`🔍 formatCreditCard called for ${license.name}:`, {
+      paymentMethod: license.paymentMethod,
+      payment_method: (license as any).payment_method,
+      creditCardDigits: license.creditCardDigits,
+      credit_card_digits: (license as any).credit_card_digits
+    });
+    
     // Check both camelCase and snake_case versions of payment method
     const paymentMethod = license.paymentMethod || (license as any).payment_method;
     const creditCardDigits = license.creditCardDigits || (license as any).credit_card_digits;
@@ -130,16 +152,21 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
     const isCreditCard = paymentMethod === PaymentMethod.CREDIT_CARD || 
                         paymentMethod === "credit_card";
     
+    console.log(`🔍 isCreditCard result: ${isCreditCard} for payment method: ${paymentMethod}`);
+    
     if (!isCreditCard) {
+      console.log(`🔍 Not credit card, returning "-"`);
       return "-";
     }
     
     // Check if digits exist and are not empty
     if (!creditCardDigits || String(creditCardDigits).trim() === "") {
+      console.log(`🔍 No credit card digits, returning "Not specified"`);
       return "Not specified";
     }
     
     const formattedCard = `****${String(creditCardDigits)}`;
+    console.log(`🔍 Formatted card: ${formattedCard}`);
     return formattedCard;
   };
 
@@ -148,6 +175,13 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
     const costType = license.costType || (license as any).cost_type || CostType.MONTHLY;
     const monthlyCost = license.monthlyCost;
     
+    console.log(`🔍 formatCost for ${license.name}:`, {
+      costType,
+      monthlyCost,
+      originalCostType: license.costType,
+      snakeCaseCostType: (license as any).cost_type
+    });
+    
     switch (costType) {
       case CostType.MONTHLY:
         return `$${monthlyCost.toFixed(2)}/month`;
@@ -155,34 +189,48 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
         return `$${monthlyCost.toFixed(2)}/year`;
       case CostType.ONE_TIME:
         return `$${monthlyCost.toFixed(2)} (one-time)`;
+      case "monthly":
+        return `$${monthlyCost.toFixed(2)}/month`;
+      case "yearly":
+        return `$${monthlyCost.toFixed(2)}/year`;
+      case "one_time":
+        return `$${monthlyCost.toFixed(2)} (one-time)`;
       default:
+        console.log(`🔍 Unknown cost type: ${costType}, defaulting to monthly`);
         return `$${monthlyCost.toFixed(2)}`;
     }
   };
 
-  // Calculate monthly equivalent for yearly costs - FIXED VERSION
+  // Calculate monthly equivalent for yearly costs - ENHANCED DEBUG VERSION
   const getMonthlyEquivalent = (license: License) => {
     const costType = license.costType || (license as any).cost_type || CostType.MONTHLY;
     const cost = license.monthlyCost;
     
-    console.log(`🔍 Monthly equivalent calc for ${license.name}:`, {
+    console.log(`🔍 ENHANCED Monthly equivalent calc for ${license.name}:`, {
       costType,
       cost,
+      costTypeOf: typeof costType,
       originalCostType: license.costType,
-      snakeCaseCostType: (license as any).cost_type
+      snakeCaseCostType: (license as any).cost_type,
+      CostTypeYEARLY: CostType.YEARLY,
+      isYearlyEnum: costType === CostType.YEARLY,
+      isYearlyString: costType === "yearly",
+      allCostTypeValues: Object.values(CostType)
     });
     
     // Check for yearly cost type (handle both enum and string values)
     if (costType === CostType.YEARLY || costType === "yearly") {
       const monthlyEquivalent = (cost / 12).toFixed(2);
-      console.log(`🔍 Yearly cost detected, monthly equivalent: ${monthlyEquivalent}`);
+      console.log(`🔍 ✅ Yearly cost detected, monthly equivalent: ${monthlyEquivalent}`);
       return monthlyEquivalent;
     }
     
     if (costType === CostType.ONE_TIME || costType === "one_time") {
+      console.log(`🔍 One-time cost detected, returning "-"`);
       return "-";
     }
     
+    console.log(`🔍 Monthly cost detected, returning: ${cost.toFixed(2)}`);
     return cost.toFixed(2);
   };
 
@@ -334,4 +382,3 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
 };
 
 export default LicenseTable;
-
