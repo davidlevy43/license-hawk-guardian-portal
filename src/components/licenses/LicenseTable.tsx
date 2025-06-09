@@ -38,22 +38,6 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
   const [sortField, setSortField] = useState<keyof License>("renewalDate");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
-  // Add detailed logging for all licenses
-  console.log("🔍 LicenseTable render - Total licenses:", licenses.length);
-  console.log("🔍 All licenses full data:", licenses);
-  
-  licenses.forEach((license, index) => {
-    console.log(`🔍 License ${index + 1} detailed analysis:`, {
-      name: license.name,
-      costType: license.costType,
-      cost_type_snake: (license as any).cost_type,
-      monthlyCost: license.monthlyCost,
-      monthly_cost_snake: (license as any).monthly_cost,
-      allProperties: Object.keys(license),
-      fullObject: license
-    });
-  });
-
   // Filter licenses by search query
   const filteredLicenses = licenses.filter((license) => {
     const searchTerm = searchQuery.toLowerCase();
@@ -137,13 +121,6 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
 
   // Fixed credit card formatting function
   const formatCreditCard = (license: License) => {
-    console.log(`🔍 formatCreditCard called for ${license.name}:`, {
-      paymentMethod: license.paymentMethod,
-      payment_method: (license as any).payment_method,
-      creditCardDigits: license.creditCardDigits,
-      credit_card_digits: (license as any).credit_card_digits
-    });
-    
     // Check both camelCase and snake_case versions of payment method
     const paymentMethod = license.paymentMethod || (license as any).payment_method;
     const creditCardDigits = license.creditCardDigits || (license as any).credit_card_digits;
@@ -152,48 +129,47 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
     const isCreditCard = paymentMethod === PaymentMethod.CREDIT_CARD || 
                         paymentMethod === "credit_card";
     
-    console.log(`🔍 isCreditCard result: ${isCreditCard} for payment method: ${paymentMethod}`);
-    
     if (!isCreditCard) {
-      console.log(`🔍 Not credit card, returning "-"`);
       return "-";
     }
     
     // Check if digits exist and are not empty
     if (!creditCardDigits || String(creditCardDigits).trim() === "") {
-      console.log(`🔍 No credit card digits, returning "Not specified"`);
       return "Not specified";
     }
     
-    const formattedCard = `****${String(creditCardDigits)}`;
-    console.log(`🔍 Formatted card: ${formattedCard}`);
-    return formattedCard;
+    return `****${String(creditCardDigits)}`;
   };
 
-  // New function to format cost based on cost type
+  // Helper function to normalize cost type values
+  const normalizeCostType = (costType: any): string => {
+    if (!costType) return 'monthly';
+    
+    // Convert enum values to string equivalents
+    if (costType === CostType.MONTHLY || costType === 'monthly') return 'monthly';
+    if (costType === CostType.YEARLY || costType === 'yearly') return 'yearly';
+    if (costType === CostType.ONE_TIME || costType === 'one_time') return 'one_time';
+    
+    return String(costType).toLowerCase();
+  };
+
+  // Updated function to format cost based on cost type
   const formatCost = (license: License) => {
-    const costType = license.costType || (license as any).cost_type || CostType.MONTHLY;
+    const costType = normalizeCostType(license.costType || (license as any).cost_type);
     const monthlyCost = license.monthlyCost;
     
     console.log(`🔍 formatCost for ${license.name}:`, {
       costType,
       monthlyCost,
-      originalCostType: license.costType,
-      snakeCaseCostType: (license as any).cost_type
+      normalizedCostType: costType
     });
     
     switch (costType) {
-      case CostType.MONTHLY:
+      case 'monthly':
         return `$${monthlyCost.toFixed(2)}/month`;
-      case CostType.YEARLY:
+      case 'yearly':
         return `$${monthlyCost.toFixed(2)}/year`;
-      case CostType.ONE_TIME:
-        return `$${monthlyCost.toFixed(2)} (one-time)`;
-      case "monthly":
-        return `$${monthlyCost.toFixed(2)}/month`;
-      case "yearly":
-        return `$${monthlyCost.toFixed(2)}/year`;
-      case "one_time":
+      case 'one_time':
         return `$${monthlyCost.toFixed(2)} (one-time)`;
       default:
         console.log(`🔍 Unknown cost type: ${costType}, defaulting to monthly`);
@@ -201,31 +177,25 @@ const LicenseTable: React.FC<LicenseTableProps> = ({ onEdit, onDelete }) => {
     }
   };
 
-  // Calculate monthly equivalent for yearly costs - ENHANCED DEBUG VERSION
+  // Calculate monthly equivalent for yearly costs - FIXED VERSION
   const getMonthlyEquivalent = (license: License) => {
-    const costType = license.costType || (license as any).cost_type || CostType.MONTHLY;
+    const costType = normalizeCostType(license.costType || (license as any).cost_type);
     const cost = license.monthlyCost;
     
-    console.log(`🔍 ENHANCED Monthly equivalent calc for ${license.name}:`, {
+    console.log(`🔍 FIXED Monthly equivalent calc for ${license.name}:`, {
       costType,
       cost,
-      costTypeOf: typeof costType,
-      originalCostType: license.costType,
-      snakeCaseCostType: (license as any).cost_type,
-      CostTypeYEARLY: CostType.YEARLY,
-      isYearlyEnum: costType === CostType.YEARLY,
-      isYearlyString: costType === "yearly",
-      allCostTypeValues: Object.values(CostType)
+      normalizedCostType: costType
     });
     
-    // Check for yearly cost type (handle both enum and string values)
-    if (costType === CostType.YEARLY || costType === "yearly") {
+    // Check for yearly cost type
+    if (costType === 'yearly') {
       const monthlyEquivalent = (cost / 12).toFixed(2);
       console.log(`🔍 ✅ Yearly cost detected, monthly equivalent: ${monthlyEquivalent}`);
       return monthlyEquivalent;
     }
     
-    if (costType === CostType.ONE_TIME || costType === "one_time") {
+    if (costType === 'one_time') {
       console.log(`🔍 One-time cost detected, returning "-"`);
       return "-";
     }
