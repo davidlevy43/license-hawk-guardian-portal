@@ -114,6 +114,7 @@ async function initializeDatabase() {
         status VARCHAR(50) NOT NULL,
         notes TEXT,
         credit_card_digits VARCHAR(4),
+        cost_type VARCHAR(50) DEFAULT 'monthly',
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
@@ -418,8 +419,10 @@ app.get('/api/licenses', async (req, res) => {
       startDate: row.start_date,
       renewalDate: row.renewal_date,
       monthlyCost: parseFloat(row.monthly_cost),
+      costType: row.cost_type,
       serviceOwner: row.service_owner,
       serviceOwnerEmail: row.service_owner_email,
+      paymentMethod: row.payment_method,
       creditCardDigits: row.credit_card_digits,
       createdAt: row.created_at,
       updatedAt: row.updated_at
@@ -447,8 +450,10 @@ app.get('/api/licenses/:id', async (req, res) => {
       startDate: row.start_date,
       renewalDate: row.renewal_date,
       monthlyCost: parseFloat(row.monthly_cost),
+      costType: row.cost_type,
       serviceOwner: row.service_owner,
       serviceOwnerEmail: row.service_owner_email,
+      paymentMethod: row.payment_method,
       creditCardDigits: row.credit_card_digits,
       createdAt: row.created_at,
       updatedAt: row.updated_at
@@ -465,7 +470,7 @@ app.post('/api/licenses', async (req, res) => {
   const {
     name, type, department, supplier,
     startDate, renewalDate, monthlyCost,
-    paymentMethod, serviceOwner, serviceOwnerEmail,
+    costType, paymentMethod, serviceOwner, serviceOwnerEmail,
     status, notes, creditCardDigits
   } = req.body;
   
@@ -479,14 +484,14 @@ app.post('/api/licenses', async (req, res) => {
     const result = await pool.query(
       `INSERT INTO licenses (
         name, type, department, supplier,
-        start_date, renewal_date, monthly_cost,
+        start_date, renewal_date, monthly_cost, cost_type,
         payment_method, service_owner, service_owner_email,
         status, notes, credit_card_digits
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
       RETURNING *`,
       [
         name, type, department, supplier,
-        startDate, renewalDate, monthlyCost,
+        startDate, renewalDate, monthlyCost, costType || 'monthly',
         paymentMethod, serviceOwner, serviceOwnerEmail || '',
         status, notes || '', creditCardDigits || null
       ]
@@ -498,8 +503,10 @@ app.post('/api/licenses', async (req, res) => {
       startDate: row.start_date,
       renewalDate: row.renewal_date,
       monthlyCost: parseFloat(row.monthly_cost),
+      costType: row.cost_type,
       serviceOwner: row.service_owner,
       serviceOwnerEmail: row.service_owner_email,
+      paymentMethod: row.payment_method,
       creditCardDigits: row.credit_card_digits,
       createdAt: row.created_at,
       updatedAt: row.updated_at
@@ -521,7 +528,7 @@ app.patch('/api/licenses/:id', async (req, res) => {
     'startDate': 'start_date',
     'renewalDate': 'renewal_date',
     'monthlyCost': 'monthly_cost',
-    'costType': 'cost_type',  // ✅ FIXED: This was missing!
+    'costType': 'cost_type',
     'paymentMethod': 'payment_method',
     'serviceOwner': 'service_owner',
     'serviceOwnerEmail': 'service_owner_email',
@@ -576,10 +583,10 @@ app.patch('/api/licenses/:id', async (req, res) => {
       startDate: row.start_date,
       renewalDate: row.renewal_date,
       monthlyCost: parseFloat(row.monthly_cost),
-      costType: row.cost_type,  // ✅ FIXED: Make sure to return the correct costType
+      costType: row.cost_type,
       serviceOwner: row.service_owner,
       serviceOwnerEmail: row.service_owner_email,
-      paymentMethod: row.payment_method,  // ✅ FIXED: Make sure to return the correct paymentMethod
+      paymentMethod: row.payment_method,
       creditCardDigits: row.credit_card_digits,
       createdAt: row.created_at,
       updatedAt: row.updated_at
@@ -696,5 +703,3 @@ process.on('uncaughtException', (err) => {
   console.error('Uncaught exception:', err);
   // Keep server running despite errors
 });
-
-</edits_to_apply>
