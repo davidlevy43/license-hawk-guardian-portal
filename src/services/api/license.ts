@@ -1,4 +1,5 @@
 
+
 import { License } from '@/types';
 import { fetchAPI } from './base';
 
@@ -90,15 +91,16 @@ export const LicenseAPI = {
   
   create: async (license: Omit<License, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      console.log('Creating license:', license);
+      console.log('🔍 ✅ Creating license with data:', license);
       const preparedData = prepareLicenseData(license);
-      console.log('Prepared license data:', preparedData);
+      console.log('🔍 ✅ About to POST to API:', JSON.stringify(preparedData, null, 2));
       
       const newLicense = await fetchAPI<any>('/licenses', {
         method: 'POST',
         body: JSON.stringify(preparedData),
       });
       
+      console.log('🔍 ✅ API Response after CREATE:', newLicense);
       return processLicense(newLicense);
     } catch (error) {
       console.error('Failed to create license:', error);
@@ -108,15 +110,16 @@ export const LicenseAPI = {
   
   update: async (id: string, license: Partial<License>) => {
     try {
-      console.log('Updating license:', id, license);
+      console.log('🔍 ✅ Updating license with data:', license);
       const preparedData = prepareLicenseData(license);
-      console.log('Prepared update data:', preparedData);
+      console.log('🔍 ✅ About to PATCH to API:', JSON.stringify(preparedData, null, 2));
       
       const updatedLicense = await fetchAPI<any>(`/licenses/${id}`, {
         method: 'PATCH',
         body: JSON.stringify(preparedData),
       });
       
+      console.log('🔍 ✅ API Response after UPDATE:', updatedLicense);
       return processLicense(updatedLicense);
     } catch (error) {
       console.error(`Failed to update license ${id}:`, error);
@@ -136,3 +139,4 @@ export const LicenseAPI = {
     }
   },
 };
+
