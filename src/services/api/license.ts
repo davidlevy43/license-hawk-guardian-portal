@@ -1,4 +1,3 @@
-
 import { License } from '@/types';
 import { fetchAPI } from './base';
 
@@ -24,14 +23,6 @@ const prepareLicenseData = (license: Omit<License, 'id' | 'createdAt' | 'updated
     preparedLicense.renewalDate = preparedLicense.renewalDate.toISOString();
   }
   
-  // ✅ ENHANCED: Only set default if costType is completely missing
-  if (preparedLicense.costType === undefined || preparedLicense.costType === null) {
-    console.log("🔍 ✅ Setting default costType to monthly because it was:", preparedLicense.costType);
-    preparedLicense.costType = 'monthly';
-  } else {
-    console.log("🔍 ✅ Keeping existing costType:", preparedLicense.costType);
-  }
-  
   console.log("🔍 ✅ ENHANCED Final prepared data for API:", {
     costType: preparedLicense.costType,
     paymentMethod: preparedLicense.paymentMethod,
@@ -43,14 +34,20 @@ const prepareLicenseData = (license: Omit<License, 'id' | 'createdAt' | 'updated
   return preparedLicense;
 };
 
-// Process license from API to client
+// Process license from API to client - FIXED to preserve costType
 const processLicense = (license: any): License => {
   console.log("🔍 ✅ FIXED Processing license from API:", {
     name: license.name,
     costType: license.costType,
+    cost_type: license.cost_type,
     paymentMethod: license.paymentMethod,
-    creditCardDigits: license.creditCardDigits
+    payment_method: license.payment_method,
+    creditCardDigits: license.creditCardDigits,
+    credit_card_digits: license.credit_card_digits
   });
+  
+  // ✅ FIXED: Use the actual costType from the API response, don't override with default
+  const actualCostType = license.costType || license.cost_type;
   
   return {
     ...license,
@@ -59,8 +56,11 @@ const processLicense = (license: any): License => {
     renewalDate: new Date(license.renewalDate),
     createdAt: new Date(license.createdAt),
     updatedAt: new Date(license.updatedAt),
-    // ✅ FIXED: Only set default if costType is missing completely
-    costType: license.costType || 'monthly'
+    // ✅ FIXED: Preserve the actual costType from the API
+    costType: actualCostType,
+    // Handle snake_case to camelCase conversion for other fields
+    paymentMethod: license.paymentMethod || license.payment_method,
+    creditCardDigits: license.creditCardDigits || license.credit_card_digits
   };
 };
 
