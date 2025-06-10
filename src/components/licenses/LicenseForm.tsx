@@ -72,25 +72,34 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
     mode: "onChange",
   });
 
-  // Fixed form submission to ensure costType is correctly sent
+  // Enhanced form submission with detailed logging
   const handleSubmit = (data: FormValues) => {
-    console.log("🔍 ✅ FIXED Form submission - Raw form data:", data);
-    console.log("🔍 ✅ FIXED Form submission - Cost type details:", {
+    console.log("🔍 ✅ ENHANCED Form submission - Raw form data:", data);
+    console.log("🔍 ✅ ENHANCED Form submission - Cost type details:", {
       costType: data.costType,
       costTypeValue: data.costType,
+      costTypeType: typeof data.costType,
       isMonthly: data.costType === CostType.MONTHLY,
       isYearly: data.costType === CostType.YEARLY,
-      isOneTime: data.costType === CostType.ONE_TIME
+      isOneTime: data.costType === CostType.ONE_TIME,
+      CostTypeEnum: CostType
     });
     
-    // ✅ FIXED: Ensure the form data contains the exact enum values
+    // ✅ ENHANCED: Ensure the form data contains the exact enum values with validation
     const submissionData = {
       ...data,
-      costType: data.costType, // This should already be the correct enum value
-      paymentMethod: data.paymentMethod, // This should already be the correct enum value
+      costType: data.costType as CostType, // Explicit cast to ensure enum type
+      paymentMethod: data.paymentMethod as PaymentMethod, // Explicit cast to ensure enum type
     };
     
-    console.log("🔍 ✅ FIXED Final submission data:", submissionData);
+    console.log("🔍 ✅ ENHANCED Final submission data before API call:", {
+      costType: submissionData.costType,
+      costTypeType: typeof submissionData.costType,
+      paymentMethod: submissionData.paymentMethod,
+      paymentMethodType: typeof submissionData.paymentMethod,
+      fullData: submissionData
+    });
+    
     onSubmit(submissionData);
   };
 
