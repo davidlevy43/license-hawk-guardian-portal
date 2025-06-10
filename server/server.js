@@ -1,115 +1,111 @@
 const express = require('express');
-const bodyParser = require('body-parser');
 const cors = require('cors');
 const { Pool } = require('pg');
-const { v4: uuidv4 } = require('uuid');
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+require('dotenv').config();
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
-// Initialize express app
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Enhanced CORS configuration for network access
-app.use(cors({
-  origin: true, // Allow all origins
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false
 }));
 
-// Middleware
-app.use(bodyParser.json());
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
+});
+app.use(limiter);
 
-// Get machine's IP addresses for logging
-function getLocalIpAddresses() {
-  const interfaces = os.networkInterfaces();
-  const addresses = [];
-  
-  for (const interfaceName in interfaces) {
-    const iface = interfaces[interfaceName];
-    for (let i = 0; i < iface.length; i++) {
-      const alias = iface[i];
-      if (alias.family === 'IPv4' && !alias.internal) {
-        addresses.push(alias.address);
-      }
+// CORS configuration
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'http://localhost',
+      'http://localhost:8080',
+      'http://localhost:3000',
+      'http://127.0.0.1',
+      'http://127.0.0.1:8080',
+      'http://127.0.0.1:3000',
+      process.env.FRONTEND_URL
+    ].filter(Boolean);
+    
+    // Allow any localhost or 127.0.0.1 variations
+    if (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('lovableproject.com')) {
+      return callback(null, true);
     }
-  }
-  
-  return addresses;
-}
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
-// Check if dist directory exists before serving static files
-const distPath = path.join(__dirname, '../dist');
-if (fs.existsSync(distPath)) {
-  console.log('Serving static files from dist directory');
-  app.use(express.static(distPath));
-} else {
-  console.log('Warning: dist directory not found. Static files will not be served.');
-  console.log('To serve the frontend, build the React app using "npm run build" or "yarn build"');
-}
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Initialize PostgreSQL connection
+// Database connection
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: false // For local development
+  connectionString: process.env.DATABASE_URL || 'postgresql://admin:admin123@localhost:5432/license_manager',
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
 // Test database connection
 pool.connect((err, client, release) => {
   if (err) {
-    console.error('Error connecting to PostgreSQL database:', err.message);
-    console.error('DATABASE_URL:', process.env.DATABASE_URL);
+    console.error('Error acquiring client', err.stack);
   } else {
-    console.log('Connected to PostgreSQL database');
+    console.log('Database connected successfully');
     release();
-    initializeDatabase();
   }
 });
 
-// Initialize database tables
+// JWT Secret
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-here-change-in-production';
+
+// Database initialization
 async function initializeDatabase() {
   try {
-    // Check if tables exist and create them if they don't
+    // Create users table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        username VARCHAR(255) NOT NULL,
-        email VARCHAR(255) NOT NULL UNIQUE,
-        password_hash VARCHAR(255) NOT NULL,
-        role VARCHAR(50) NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        role VARCHAR(50) DEFAULT 'user',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    
-    console.log('Users table initialized');
-    
-    // Check if password_hash column exists and add it if missing
-    const checkPasswordColumn = await pool.query(`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = 'users' AND column_name = 'password_hash'
-    `);
-    
-    if (checkPasswordColumn.rows.length === 0) {
-      console.log('Adding missing password_hash column to users table...');
-      await pool.query(`ALTER TABLE users ADD COLUMN password_hash VARCHAR(255) NOT NULL DEFAULT 'default123'`);
-      console.log('Password_hash column added successfully');
-    }
-    
+
+    // Create licenses table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS licenses (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         type VARCHAR(100) NOT NULL,
-        department VARCHAR(255) NOT NULL,
-        supplier VARCHAR(255) NOT NULL,
-        start_date DATE NOT NULL,
-        renewal_date DATE NOT NULL,
-        monthly_cost DECIMAL(10,2) NOT NULL,
-        payment_method VARCHAR(100) NOT NULL,
-        service_owner VARCHAR(255) NOT NULL,
+        department VARCHAR(100),
+        supplier VARCHAR(255),
+        start_date DATE,
+        renewal_date DATE,
+        monthly_cost DECIMAL(10,2),
+        payment_method VARCHAR(100),
+        service_owner VARCHAR(255),
         service_owner_email VARCHAR(255),
         status VARCHAR(50) NOT NULL,
         notes TEXT,
@@ -119,303 +115,179 @@ async function initializeDatabase() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    
-    console.log('Licenses table initialized');
-    
-    // Check for admin users
-    await checkAndCreateAdminUsers();
-    
-  } catch (error) {
-    console.error('Error initializing database:', error);
-  }
-}
 
-// Check if admin users exist, if not create them
-async function checkAndCreateAdminUsers() {
-  try {
-    // Check for the default admin user
-    await checkAndCreateSpecificAdmin('admin', 'admin@example.com', 'admin123');
-    
-    // Check for the additional admin user
-    await checkAndCreateSpecificAdmin('david', 'david@rotem.com', 'admin123');
-  } catch (error) {
-    console.error('Error creating admin users:', error);
-  }
-}
-
-// Helper function to check and create a specific admin user
-async function checkAndCreateSpecificAdmin(username, email, password) {
-  try {
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-    
-    if (result.rows.length === 0) {
-      // Create admin user with password_hash instead of password
+    // Create default admin user
+    const adminExists = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@example.com']);
+    if (adminExists.rows.length === 0) {
+      const hashedPassword = await bcrypt.hash('admin123', 10);
       await pool.query(
-        'INSERT INTO users (username, email, password_hash, role) VALUES ($1, $2, $3, $4)',
-        [username, email, password, 'admin']
+        'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4)',
+        ['admin@example.com', hashedPassword, 'Admin User', 'admin']
       );
-      console.log(`Admin user ${email} created`);
-    } else {
-      console.log(`User ${email} already exists`);
+      console.log('Default admin user created');
     }
+
+    console.log('Database initialized successfully');
   } catch (error) {
-    console.error(`Error creating user ${email}:`, error.message);
+    console.error('Database initialization error:', error);
   }
 }
 
-// Simple health check endpoint
-app.get('/api/health', (req, res) => {
+// Initialize database on startup
+initializeDatabase();
+
+// Authentication middleware
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token required' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Invalid or expired token' });
+    }
+    req.user = user;
+    next();
+  });
+};
+
+// Admin middleware
+const requireAdmin = (req, res, next) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+};
+
+// Health check endpoint
+app.get('/health', (req, res) => {
   res.status(200).json({ 
-    status: 'ok', 
-    message: 'Server is running',
-    time: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    hostname: os.hostname(),
-    platform: os.platform(),
-    nodeVersion: process.version
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    service: 'License Manager API'
   });
 });
 
-// Authentication endpoint
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    service: 'License Manager API'
+  });
+});
+
+// Auth routes
 app.post('/api/auth/login', async (req, res) => {
-  const { usernameOrEmail, password } = req.body;
-  
-  console.log(`🔐 [SERVER] ===== LOGIN ATTEMPT =====`);
-  console.log(`🔐 [SERVER] Username/Email: "${usernameOrEmail}"`);
-  console.log(`🔐 [SERVER] Password: "${password}"`);
-  console.log(`🔐 [SERVER] Password length: ${password ? password.length : 0}`);
-  console.log(`🔐 [SERVER] Request body:`, JSON.stringify(req.body, null, 2));
-  
-  if (!usernameOrEmail || !password) {
-    console.log('🔐 [SERVER] ❌ Missing credentials');
-    res.status(400).json({ error: 'Username/email and password are required' });
-    return;
-  }
-  
   try {
-    // Check if input is email (contains @) or username
-    const isEmail = usernameOrEmail.includes('@');
-    let query, params;
-    
-    if (isEmail) {
-      query = 'SELECT * FROM users WHERE email = $1';
-      params = [usernameOrEmail.toLowerCase()];
-      console.log(`🔐 [SERVER] Searching by email: "${usernameOrEmail.toLowerCase()}"`);
-    } else {
-      query = 'SELECT * FROM users WHERE username = $1';
-      params = [usernameOrEmail.toLowerCase()];
-      console.log(`🔐 [SERVER] Searching by username: "${usernameOrEmail.toLowerCase()}"`);
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
     }
-    
-    console.log(`🔐 [SERVER] Executing query: ${query}`);
-    console.log(`🔐 [SERVER] Query params:`, params);
-    
-    const result = await pool.query(query, params);
-    console.log(`🔐 [SERVER] Query result: Found ${result.rows.length} users`);
-    
-    if (result.rows.length === 0) {
-      console.log(`🔐 [SERVER] ❌ No user found with ${isEmail ? 'email' : 'username'}: "${usernameOrEmail}"`);
-      
-      // Debug: Let's see what users actually exist
-      const allUsersResult = await pool.query('SELECT id, username, email FROM users LIMIT 10');
-      console.log(`🔐 [SERVER] 🔍 Available users in database:`, allUsersResult.rows);
-      
-      res.status(401).json({ error: 'Invalid username/email or password' });
-      return;
-    }
-    
+
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     const user = result.rows[0];
-    console.log(`🔐 [SERVER] ✅ User found:`);
-    console.log(`🔐 [SERVER]   - ID: "${user.id}"`);
-    console.log(`🔐 [SERVER]   - Username: "${user.username}"`);
-    console.log(`🔐 [SERVER]   - Email: "${user.email}"`);
-    console.log(`🔐 [SERVER]   - Role: "${user.role}"`);
-    console.log(`🔐 [SERVER]   - Stored password_hash: "${user.password_hash}"`);
-    
-    // Check password against password_hash field
-    console.log(`🔐 [SERVER] 🔍 Password comparison:`);
-    console.log(`🔐 [SERVER]   - Expected: "${user.password_hash}"`);
-    console.log(`🔐 [SERVER]   - Provided: "${password}"`);
-    console.log(`🔐 [SERVER]   - Match: ${user.password_hash === password}`);
-    
-    if (user.password_hash !== password) {
-      console.log(`🔐 [SERVER] ❌ Password mismatch for user "${user.username}"`);
-      console.log(`🔐 [SERVER] ❌ Expected: "${user.password_hash}", Got: "${password}"`);
-      res.status(401).json({ error: 'Invalid username/email or password' });
-      return;
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
-    
-    console.log(`🔐 [SERVER] ✅ Password match! User "${user.username}" authenticated successfully`);
-    
-    // Return user data without password
-    const { password_hash, ...userWithoutPassword } = user;
-    const responseUser = {
-      ...userWithoutPassword,
-      createdAt: user.created_at
-    };
-    
-    console.log(`🔐 [SERVER] ✅ Sending successful response for user: "${user.username}"`);
-    
-    res.json({ 
-      message: 'Login successful', 
-      user: responseUser,
-      token: 'secure-token' // In a real app, this would be a JWT
+
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      }
     });
-    
   } catch (error) {
-    console.error('🔐 [SERVER] ❌ Database error:', error);
+    console.error('Login error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// User API endpoints
-app.get('/api/users', async (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, username, email, role, created_at FROM users');
-    
-    const formattedRows = result.rows.map(row => ({
-      ...row,
-      createdAt: row.created_at
-    }));
-    
-    res.json(formattedRows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to fetch users' });
-  }
-});
+    const { email, password, name } = req.body;
 
-app.get('/api/users/:id', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT id, username, email, role, created_at FROM users WHERE id = $1', [req.params.id]);
-    
-    if (result.rows.length === 0) {
-      res.status(404).json({ error: 'User not found' });
-      return;
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: 'Email, password, and name are required' });
     }
-    
-    const formattedUser = {
-      ...result.rows[0],
-      createdAt: result.rows[0].created_at
-    };
-    
-    res.json(formattedUser);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to fetch user' });
-  }
-});
 
-app.post('/api/users', async (req, res) => {
-  const { username, email, role, password = 'default123' } = req.body;
-  
-  console.log('Creating user with data:', { username, email, role, password: password ? '[PROVIDED]' : '[DEFAULT]' });
-  
-  if (!username || !email || !role) {
-    console.log('Missing required fields:', { username: !!username, email: !!email, role: !!role });
-    res.status(400).json({ error: 'Missing required fields' });
-    return;
-  }
-  
-  try {
-    // Check if user with this email already exists
+    // Check if user already exists
     const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
     if (existingUser.rows.length > 0) {
-      console.log('User already exists with email:', email);
-      res.status(400).json({ error: 'Email already exists' });
-      return;
+      return res.status(409).json({ error: 'User already exists' });
     }
-    
-    console.log('Inserting new user into database...');
-    // Use password_hash instead of password
+
+    const hashedPassword = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      'INSERT INTO users (username, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id, username, email, role, created_at',
-      [username, email, password, role]
+      'INSERT INTO users (email, password, name) VALUES ($1, $2, $3) RETURNING id, email, name, role',
+      [email, hashedPassword, name]
     );
-    
-    console.log('User created successfully:', result.rows[0]);
-    
-    const responseUser = {
-      ...result.rows[0],
-      createdAt: result.rows[0].created_at
-    };
-    
-    res.status(201).json(responseUser);
+
+    const user = result.rows[0];
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.status(201).json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      }
+    });
   } catch (error) {
-    console.error('Database error creating user:', error);
-    if (error.code === '23505') { // Unique violation
-      res.status(400).json({ error: 'Email already exists' });
-    } else {
-      res.status(500).json({ error: 'Failed to create user', details: error.message });
-    }
+    console.error('Registration error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-app.patch('/api/users/:id', async (req, res) => {
-  const allowedFields = ['username', 'email', 'role'];
-  const updates = {};
-  
-  allowedFields.forEach(field => {
-    if (req.body[field] !== undefined) {
-      updates[field] = req.body[field];
+// Verify token endpoint
+app.get('/api/auth/verify', authenticateToken, (req, res) => {
+  res.json({
+    user: {
+      id: req.user.id,
+      email: req.user.email,
+      role: req.user.role
     }
   });
-  
-  if (Object.keys(updates).length === 0) {
-    res.status(400).json({ error: 'No valid fields to update' });
-    return;
-  }
-  
-  try {
-    // Construct SQL query
-    const setClause = Object.keys(updates).map((key, index) => `${key} = $${index + 2}`).join(', ');
-    const values = [req.params.id, ...Object.values(updates)];
-    
-    const result = await pool.query(
-      `UPDATE users SET ${setClause} WHERE id = $1 RETURNING id, username, email, role, created_at`,
-      values
-    );
-    
-    if (result.rows.length === 0) {
-      res.status(404).json({ error: 'User not found' });
-      return;
-    }
-    
-    const formattedUser = {
-      ...result.rows[0],
-      createdAt: result.rows[0].created_at
-    };
-    
-    res.json(formattedUser);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to update user' });
-  }
 });
 
-app.delete('/api/users/:id', async (req, res) => {
+// License routes
+app.get('/api/licenses', authenticateToken, async (req, res) => {
   try {
-    const result = await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
+    const result = await pool.query(`
+      SELECT * FROM licenses 
+      ORDER BY created_at DESC
+    `);
     
-    if (result.rowCount === 0) {
-      res.status(404).json({ error: 'User not found' });
-      return;
-    }
-    
-    res.status(204).end();
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to delete user' });
-  }
-});
-
-// License API endpoints
-app.get('/api/licenses', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM licenses');
-    
-    const formattedRows = result.rows.map(row => ({
-      ...row,
+    const licenses = result.rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      department: row.department,
+      supplier: row.supplier,
       startDate: row.start_date,
       renewalDate: row.renewal_date,
       monthlyCost: parseFloat(row.monthly_cost),
@@ -427,26 +299,30 @@ app.get('/api/licenses', async (req, res) => {
       createdAt: row.created_at,
       updatedAt: row.updated_at
     }));
-    
-    res.json(formattedRows);
+
+    res.json(licenses);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to fetch licenses' });
+    console.error('Error fetching licenses:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-app.get('/api/licenses/:id', async (req, res) => {
+app.get('/api/licenses/:id', authenticateToken, async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM licenses WHERE id = $1', [req.params.id]);
+    const { id } = req.params;
+    const result = await pool.query('SELECT * FROM licenses WHERE id = $1', [id]);
     
     if (result.rows.length === 0) {
-      res.status(404).json({ error: 'License not found' });
-      return;
+      return res.status(404).json({ error: 'License not found' });
     }
-    
+
     const row = result.rows[0];
-    const formattedLicense = {
-      ...row,
+    const license = {
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      department: row.department,
+      supplier: row.supplier,
       startDate: row.start_date,
       renewalDate: row.renewal_date,
       monthlyCost: parseFloat(row.monthly_cost),
@@ -458,29 +334,27 @@ app.get('/api/licenses/:id', async (req, res) => {
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
-    
-    res.json(formattedLicense);
+
+    res.json(license);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to fetch license' });
+    console.error('Error fetching license:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-app.post('/api/licenses', async (req, res) => {
-  const {
-    name, type, department, supplier,
-    startDate, renewalDate, monthlyCost,
-    costType, paymentMethod, serviceOwner, serviceOwnerEmail,
-    status, notes, creditCardDigits
-  } = req.body;
-  
-  if (!name || !type || !department || !supplier || !startDate || !renewalDate || 
-      monthlyCost === undefined || !paymentMethod || !serviceOwner || !status) {
-    res.status(400).json({ error: 'Missing required fields' });
-    return;
-  }
-  
+app.post('/api/licenses', authenticateToken, async (req, res) => {
   try {
+    const {
+      name, type, department, supplier,
+      startDate, renewalDate, monthlyCost,
+      costType, paymentMethod, serviceOwner, serviceOwnerEmail,
+      status, notes, creditCardDigits
+    } = req.body;
+    
+    if (!name || !type || !status) {
+      return res.status(400).json({ error: 'Name, type, and status are required' });
+    }
+
     const result = await pool.query(
       `INSERT INTO licenses (
         name, type, department, supplier,
@@ -496,10 +370,14 @@ app.post('/api/licenses', async (req, res) => {
         status, notes || '', creditCardDigits || null
       ]
     );
-    
+
     const row = result.rows[0];
-    const responseLicense = {
-      ...row,
+    const license = {
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      department: row.department,
+      supplier: row.supplier,
       startDate: row.start_date,
       renewalDate: row.renewal_date,
       monthlyCost: parseFloat(row.monthly_cost),
@@ -511,75 +389,79 @@ app.post('/api/licenses', async (req, res) => {
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
-    
-    res.status(201).json(responseLicense);
+
+    res.status(201).json(license);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to create license' });
+    console.error('Error creating license:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-app.patch('/api/licenses/:id', async (req, res) => {
-  const allowedFields = {
-    'name': 'name',
-    'type': 'type', 
-    'department': 'department',
-    'supplier': 'supplier',
-    'startDate': 'start_date',
-    'renewalDate': 'renewal_date',
-    'monthlyCost': 'monthly_cost',
-    'costType': 'cost_type',
-    'paymentMethod': 'payment_method',
-    'serviceOwner': 'service_owner',
-    'serviceOwnerEmail': 'service_owner_email',
-    'status': 'status',
-    'notes': 'notes',
-    'creditCardDigits': 'credit_card_digits'
-  };
-  
-  console.log('🔍 PATCH Request received for license:', req.params.id);
-  console.log('🔍 Request body:', JSON.stringify(req.body, null, 2));
-  
-  const updates = {};
-  
-  Object.entries(allowedFields).forEach(([clientField, dbField]) => {
-    if (req.body[clientField] !== undefined) {
-      updates[dbField] = req.body[clientField];
-      console.log(`🔍 Mapping ${clientField} -> ${dbField}:`, req.body[clientField]);
-    }
-  });
-  
-  if (Object.keys(updates).length === 0) {
-    res.status(400).json({ error: 'No valid fields to update' });
-    return;
-  }
-  
-  updates.updated_at = new Date();
-  
-  console.log('🔍 Final updates object for database:', updates);
-  
+app.put('/api/licenses/:id', authenticateToken, async (req, res) => {
   try {
-    const setClause = Object.keys(updates).map((key, index) => `${key} = $${index + 2}`).join(', ');
-    const values = [req.params.id, ...Object.values(updates)];
+    const { id } = req.params;
     
-    console.log('🔍 SQL Query:', `UPDATE licenses SET ${setClause} WHERE id = $1 RETURNING *`);
-    console.log('🔍 SQL Values:', values);
+    // Field mapping from frontend to database
+    const fieldMap = {
+      'name': 'name',
+      'type': 'type',
+      'department': 'department',
+      'supplier': 'supplier',
+      'startDate': 'start_date',
+      'renewalDate': 'renewal_date',
+      'monthlyCost': 'monthly_cost',
+      'costType': 'cost_type',
+      'paymentMethod': 'payment_method',
+      'serviceOwner': 'service_owner',
+      'serviceOwnerEmail': 'service_owner_email',
+      'status': 'status',
+      'notes': 'notes',
+      'creditCardDigits': 'credit_card_digits'
+    };
+
+    const updateFields = [];
+    const values = [];
+    let valueIndex = 1;
+
+    // Build dynamic update query
+    Object.keys(req.body).forEach(key => {
+      if (fieldMap[key] && req.body[key] !== undefined) {
+        updateFields.push(`${fieldMap[key]} = $${valueIndex}`);
+        values.push(req.body[key]);
+        valueIndex++;
+      }
+    });
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+
+    // Add updated_at field
+    updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
     
-    const result = await pool.query(
-      `UPDATE licenses SET ${setClause} WHERE id = $1 RETURNING *`,
-      values
-    );
+    // Add id for WHERE clause
+    values.push(id);
+
+    const query = `
+      UPDATE licenses 
+      SET ${updateFields.join(', ')}
+      WHERE id = $${valueIndex}
+      RETURNING *
+    `;
+
+    const result = await pool.query(query, values);
     
     if (result.rows.length === 0) {
-      res.status(404).json({ error: 'License not found' });
-      return;
+      return res.status(404).json({ error: 'License not found' });
     }
-    
+
     const row = result.rows[0];
-    console.log('🔍 Database result after update:', row);
-    
-    const formattedLicense = {
-      ...row,
+    const license = {
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      department: row.department,
+      supplier: row.supplier,
       startDate: row.start_date,
       renewalDate: row.renewal_date,
       monthlyCost: parseFloat(row.monthly_cost),
@@ -591,115 +473,160 @@ app.patch('/api/licenses/:id', async (req, res) => {
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
-    
-    console.log('🔍 Final formatted response:', formattedLicense);
-    
-    res.json(formattedLicense);
+
+    res.json(license);
   } catch (error) {
-    console.error('🔍 Database error:', error);
-    res.status(500).json({ error: 'Failed to update license' });
+    console.error('Error updating license:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-app.delete('/api/licenses/:id', async (req, res) => {
+app.delete('/api/licenses/:id', authenticateToken, async (req, res) => {
   try {
-    const result = await pool.query('DELETE FROM licenses WHERE id = $1', [req.params.id]);
+    const { id } = req.params;
+    const result = await pool.query('DELETE FROM licenses WHERE id = $1 RETURNING id', [id]);
     
-    if (result.rowCount === 0) {
-      res.status(404).json({ error: 'License not found' });
-      return;
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'License not found' });
     }
-    
-    res.status(204).end();
+
+    res.json({ message: 'License deleted successfully' });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to delete license' });
+    console.error('Error deleting license:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Only serve React frontend if dist directory exists
-app.get('*', (req, res) => {
-  if (fs.existsSync(distPath)) {
-    res.sendFile(path.join(distPath, 'index.html'));
-  } else {
-    res.status(200).send(`
-      <html>
-        <head>
-          <title>License Manager API Server</title>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; }
-            code { background-color: #f4f4f4; padding: 2px 5px; border-radius: 3px; }
-            .error { color: #d32f2f; }
-            .success { color: #388e3c; }
-          </style>
-        </head>
-        <body>
-          <h1>License Manager API Server is running</h1>
-          <p>The API server is running successfully, but the frontend files are not available.</p>
-          <p>API endpoints are available at: <code>http://[your-server-ip]:${PORT}/api/</code></p>
-          
-          <h2>Quick Setup Instructions</h2>
-          <ol>
-            <li>Navigate to the project root directory (one level up from server)</li>
-            <li>Run <code>npm install</code> to install dependencies</li>
-            <li>Run <code>npm run build</code> to build the frontend</li>
-            <li>Restart this server</li>
-          </ol>
-          
-          <h2>Alternative Setup</h2>
-          <p>For a one-click setup, run <code>setup-once-forever.bat</code> as Administrator.</p>
-          
-          <h2>Current Server Information</h2>
-          <p>Server process ID: <code>${process.pid}</code></p>
-          <p>Available IP addresses: <code>${getLocalIpAddresses().join(', ')}</code></p>
-        </body>
-      </html>
-    `);
+// User management routes (admin only)
+app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, email, name, role, created_at FROM users ORDER BY created_at DESC');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Server error:', err);
-  res.status(500).json({ error: 'Internal server error', message: err.message });
+app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { email, password, name, role } = req.body;
+
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: 'Email, password, and name are required' });
+    }
+
+    const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existingUser.rows.length > 0) {
+      return res.status(409).json({ error: 'User already exists' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const result = await pool.query(
+      'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, name, role, created_at',
+      [email, hashedPassword, name, role || 'user']
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
-// Start the server - Listen on all network interfaces (0.0.0.0)
+app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { email, name, role, password } = req.body;
+
+    let query = 'UPDATE users SET email = $1, name = $2, role = $3, updated_at = CURRENT_TIMESTAMP';
+    let values = [email, name, role];
+
+    if (password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      query += ', password = $4';
+      values.push(hashedPassword);
+    }
+
+    query += ' WHERE id = $' + (values.length + 1) + ' RETURNING id, email, name, role, created_at';
+    values.push(id);
+
+    const result = await pool.query(query, values);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.delete('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Prevent deletion of the admin user
+    if (req.user.id == id) {
+      return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+
+    const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Settings endpoints
+app.get('/api/settings', authenticateToken, requireAdmin, (req, res) => {
+  res.json({
+    serverUrl: process.env.SERVER_URL || 'http://localhost:3001',
+    emailNotifications: process.env.EMAIL_NOTIFICATIONS === 'true',
+    smtpServer: process.env.SMTP_SERVER || '',
+    smtpPort: process.env.SMTP_PORT || 587,
+    smtpUser: process.env.SMTP_USER || '',
+    notificationDays: parseInt(process.env.NOTIFICATION_DAYS) || 30
+  });
+});
+
+app.put('/api/settings', authenticateToken, requireAdmin, (req, res) => {
+  // In a real implementation, you'd save these to a database or environment file
+  res.json({ message: 'Settings updated successfully' });
+});
+
+// Start server
 app.listen(PORT, '0.0.0.0', () => {
-  const ipAddresses = getLocalIpAddresses();
-  console.log(`=== License Manager Server Started ===`);
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Server process ID: ${process.pid}`);
-  console.log(`Database URL: ${process.env.DATABASE_URL}`);
-  console.log(`\nAccess URLs:`);
-  
-  // Log localhost URL
-  console.log(`- Local: http://localhost:${PORT}`);
-  
-  // Log all network URLs
-  ipAddresses.forEach(ip => {
-    console.log(`- Network: http://${ip}:${PORT}`);
-  });
-  
-  console.log(`\nAPI endpoints available at:`);
-  console.log(`- Local: http://localhost:${PORT}/api/`);
-  ipAddresses.forEach(ip => {
-    console.log(`- Network: http://${ip}:${PORT}/api/`);
-  });
-  
-  console.log(`\n=== Server Ready for Network Access ===`);
-  console.log(`To access from other computers, use one of the Network URLs above`);
+  console.log(`License Manager API Server running on port ${PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/health`);
 });
 
-// Handle proper shutdown
-process.on('SIGINT', () => {
-  console.log('Closing database connection');
-  pool.end();
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
   process.exit(0);
 });
 
-// Handle unexpected errors
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully');
+  process.exit(0);
+});
+
+// Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
-  console.error('Uncaught exception:', err);
+  console.error('Uncaught Exception:', err);
+  // Keep server running despite errors
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
   // Keep server running despite errors
 });
