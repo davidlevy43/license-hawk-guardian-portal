@@ -78,7 +78,6 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
     console.log("🔍 ✅ FIXED Form submission - Cost type details:", {
       costType: data.costType,
       costTypeValue: data.costType,
-      costTypeEnum: CostType[data.costType as keyof typeof CostType],
       isMonthly: data.costType === CostType.MONTHLY,
       isYearly: data.costType === CostType.YEARLY,
       isOneTime: data.costType === CostType.ONE_TIME
