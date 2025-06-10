@@ -45,7 +45,7 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
 }) => {
   const { currentUser } = useAuth();
   
-  console.log("🔍 Form initialized with initial data:", {
+  console.log("🔍 FORM INIT - Initial data received:", {
     costType: initialData?.costType,
     paymentMethod: initialData?.paymentMethod,
     creditCardDigits: initialData?.creditCardDigits
@@ -72,18 +72,32 @@ const LicenseForm: React.FC<LicenseFormProps> = ({
     mode: "onChange",
   });
 
-  // Debug form submission
+  // Fixed form submission to ensure costType is correctly sent
   const handleSubmit = (data: FormValues) => {
-    console.log("🔍 Form submission - Full data:", data);
-    console.log("🔍 Form submission - Cost type:", data.costType, typeof data.costType);
-    console.log("🔍 Form submission - Payment method:", data.paymentMethod, typeof data.paymentMethod);
-    console.log("🔍 Form submission - Credit card digits:", data.creditCardDigits);
-    onSubmit(data);
+    console.log("🔍 ✅ FIXED Form submission - Raw form data:", data);
+    console.log("🔍 ✅ FIXED Form submission - Cost type details:", {
+      costType: data.costType,
+      costTypeValue: data.costType,
+      costTypeEnum: CostType[data.costType as keyof typeof CostType],
+      isMonthly: data.costType === CostType.MONTHLY,
+      isYearly: data.costType === CostType.YEARLY,
+      isOneTime: data.costType === CostType.ONE_TIME
+    });
+    
+    // ✅ FIXED: Ensure the form data contains the exact enum values
+    const submissionData = {
+      ...data,
+      costType: data.costType, // This should already be the correct enum value
+      paymentMethod: data.paymentMethod, // This should already be the correct enum value
+    };
+    
+    console.log("🔍 ✅ FIXED Final submission data:", submissionData);
+    onSubmit(submissionData);
   };
 
   // Debug form values in real time
   const watchedValues = form.watch();
-  console.log("🔍 Current form values:", {
+  console.log("🔍 FORM WATCH - Current values:", {
     costType: watchedValues.costType,
     paymentMethod: watchedValues.paymentMethod,
     creditCardDigits: watchedValues.creditCardDigits

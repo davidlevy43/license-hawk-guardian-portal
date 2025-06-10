@@ -4,6 +4,14 @@ import { fetchAPI } from './base';
 
 // Process license data before sending to API
 const prepareLicenseData = (license: Omit<License, 'id' | 'createdAt' | 'updatedAt'> | Partial<License>) => {
+  console.log("🔍 ✅ ENHANCED prepareLicenseData - Input data:", {
+    costType: license.costType,
+    costTypeType: typeof license.costType,
+    paymentMethod: license.paymentMethod,
+    paymentMethodType: typeof license.paymentMethod,
+    fullLicense: license
+  });
+  
   // Create a copy to avoid modifying the original
   const preparedLicense: Record<string, any> = { ...license };
   
@@ -16,17 +24,20 @@ const prepareLicenseData = (license: Omit<License, 'id' | 'createdAt' | 'updated
     preparedLicense.renewalDate = preparedLicense.renewalDate.toISOString();
   }
   
-  // ✅ FIXED: Don't override costType if it's provided
-  // Only set default if it's undefined/null
-  if (!preparedLicense.costType) {
+  // ✅ ENHANCED: Only set default if costType is completely missing
+  if (preparedLicense.costType === undefined || preparedLicense.costType === null) {
+    console.log("🔍 ✅ Setting default costType to monthly because it was:", preparedLicense.costType);
     preparedLicense.costType = 'monthly';
+  } else {
+    console.log("🔍 ✅ Keeping existing costType:", preparedLicense.costType);
   }
   
-  console.log("🔍 ✅ FIXED Prepared license data for API:", {
+  console.log("🔍 ✅ ENHANCED Final prepared data for API:", {
     costType: preparedLicense.costType,
     paymentMethod: preparedLicense.paymentMethod,
     creditCardDigits: preparedLicense.creditCardDigits,
-    hasDigits: !!preparedLicense.creditCardDigits
+    hasDigits: !!preparedLicense.creditCardDigits,
+    fullPreparedData: preparedLicense
   });
   
   return preparedLicense;
