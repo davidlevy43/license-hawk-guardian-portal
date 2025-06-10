@@ -521,6 +521,7 @@ app.patch('/api/licenses/:id', async (req, res) => {
     'startDate': 'start_date',
     'renewalDate': 'renewal_date',
     'monthlyCost': 'monthly_cost',
+    'costType': 'cost_type',  // ✅ FIXED: This was missing!
     'paymentMethod': 'payment_method',
     'serviceOwner': 'service_owner',
     'serviceOwnerEmail': 'service_owner_email',
@@ -529,11 +530,15 @@ app.patch('/api/licenses/:id', async (req, res) => {
     'creditCardDigits': 'credit_card_digits'
   };
   
+  console.log('🔍 PATCH Request received for license:', req.params.id);
+  console.log('🔍 Request body:', JSON.stringify(req.body, null, 2));
+  
   const updates = {};
   
   Object.entries(allowedFields).forEach(([clientField, dbField]) => {
     if (req.body[clientField] !== undefined) {
       updates[dbField] = req.body[clientField];
+      console.log(`🔍 Mapping ${clientField} -> ${dbField}:`, req.body[clientField]);
     }
   });
   
@@ -544,9 +549,14 @@ app.patch('/api/licenses/:id', async (req, res) => {
   
   updates.updated_at = new Date();
   
+  console.log('🔍 Final updates object for database:', updates);
+  
   try {
     const setClause = Object.keys(updates).map((key, index) => `${key} = $${index + 2}`).join(', ');
     const values = [req.params.id, ...Object.values(updates)];
+    
+    console.log('🔍 SQL Query:', `UPDATE licenses SET ${setClause} WHERE id = $1 RETURNING *`);
+    console.log('🔍 SQL Values:', values);
     
     const result = await pool.query(
       `UPDATE licenses SET ${setClause} WHERE id = $1 RETURNING *`,
@@ -559,21 +569,27 @@ app.patch('/api/licenses/:id', async (req, res) => {
     }
     
     const row = result.rows[0];
+    console.log('🔍 Database result after update:', row);
+    
     const formattedLicense = {
       ...row,
       startDate: row.start_date,
       renewalDate: row.renewal_date,
       monthlyCost: parseFloat(row.monthly_cost),
+      costType: row.cost_type,  // ✅ FIXED: Make sure to return the correct costType
       serviceOwner: row.service_owner,
       serviceOwnerEmail: row.service_owner_email,
+      paymentMethod: row.payment_method,  // ✅ FIXED: Make sure to return the correct paymentMethod
       creditCardDigits: row.credit_card_digits,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
     
+    console.log('🔍 Final formatted response:', formattedLicense);
+    
     res.json(formattedLicense);
   } catch (error) {
-    console.error(error);
+    console.error('🔍 Database error:', error);
     res.status(500).json({ error: 'Failed to update license' });
   }
 });
@@ -680,3 +696,5 @@ process.on('uncaughtException', (err) => {
   console.error('Uncaught exception:', err);
   // Keep server running despite errors
 });
+
+</edits_to_apply>
