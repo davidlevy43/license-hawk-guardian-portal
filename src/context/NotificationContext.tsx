@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useLicenses } from "./LicenseContext";
 import { addDays, isWithinInterval } from "date-fns";
 import { notificationScheduler } from "@/services/notificationScheduler";
+import { API_URL } from "@/services/api/base";
 
 interface NotificationContextType {
   emailSettings: EmailSettings;
