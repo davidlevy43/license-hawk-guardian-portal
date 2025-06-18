@@ -126,18 +126,30 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const testEmailConnection = async (): Promise<boolean> => {
-    // In a real app, this would send a test email
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const success = !!emailSettings.username && !!emailSettings.password && !!emailSettings.senderEmail;
-        if (success) {
-          toast.success("Email connection test successful!");
-        } else {
-          toast.error("Email connection test failed. Please check your settings.");
-        }
-        resolve(success);
-      }, 1500);
-    });
+    try {
+      const response = await fetch(`${API_URL}/api/email/test`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+        },
+        body: JSON.stringify(emailSettings)
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        toast.success(data.message);
+        return true;
+      } else {
+        toast.error(data.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Email test error:', error);
+      toast.error('Failed to test email connection');
+      return false;
+    }
   };
 
   const sendAutomaticNotifications = () => {
@@ -174,45 +186,59 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return true;
   };
 
-  const sendEmailNotification = (license: License, templateType: keyof NotificationSettings["emailTemplates"]) => {
-    // In a real application, this would send an actual email using SMTP settings
-    const template = notificationSettings.emailTemplates[templateType];
-    const cardLastFour = license.creditCardDigits || "****";
-    const licenseType = license.type.charAt(0).toUpperCase() + license.type.slice(1);
-    
-    const emailContent = template
-      .replace("{LICENSE_NAME}", license.name)
-      .replace("{LICENSE_TYPE}", licenseType)
-      .replace("{EXPIRY_DATE}", new Date(license.renewalDate).toLocaleDateString())
-      .replace("{CARD_LAST_4}", cardLastFour)
-      .replace("{DEPARTMENT}", license.department)
-      .replace("{SUPPLIER}", license.supplier)
-      .replace("{COST}", license.monthlyCost.toString())
-      .replace("{SERVICE_OWNER}", license.serviceOwner);
-    
-    // Get recipient's email (service owner email)
-    const recipientEmail = license.serviceOwnerEmail || "";
-    
-    if (!recipientEmail) {
-      console.warn(`No email address found for service owner of license "${license.name}"`);
-      toast.warning(`No email address available for service owner of "${license.name}"`);
-      return;
+  const sendEmailNotification = async (license: License, templateType: string) => {
+    try {
+      console.log(`📧 Sending ${templateType} notification for ${license.name} to ${license.serviceOwnerEmail}`);
+      
+      if (!license.serviceOwnerEmail) {
+        console.warn(`⚠️ No service owner email for license ${license.name}`);
+        return;
+      }
+
+      let template = '';
+      switch (templateType) {
+        case 'thirtyDays':
+          template = notificationSettings.emailTemplates.thirtyDays;
+          break;
+        case 'sevenDays':
+          template = notificationSettings.emailTemplates.sevenDays;
+          break;
+        case 'oneDay':
+          template = notificationSettings.emailTemplates.oneDay;
+          break;
+        default:
+          console.error('Unknown template type:', templateType);
+          return;
+      }
+
+      const response = await fetch(`${API_URL}/api/email/send-notification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+        },
+        body: JSON.stringify({
+          emailSettings,
+          license,
+          templateType,
+          template
+        })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        console.log(`✅ Email sent successfully for ${license.name}`);
+        toast.success(`Email sent to ${license.serviceOwnerEmail} for ${license.name}`);
+      } else {
+        console.error(`❌ Failed to send email for ${license.name}:`, data.error);
+        toast.error(`Failed to send email: ${data.error}`);
+      }
+      
+    } catch (error) {
+      console.error('Email sending error:', error);
+      toast.error('Failed to send email notification');
     }
-    
-    // Check if SMTP settings are configured
-    if (!emailSettings.smtpServer || !emailSettings.username || !emailSettings.password || !emailSettings.senderEmail) {
-      console.warn("SMTP settings are not properly configured");
-      toast.warning("Email not sent: SMTP settings are incomplete");
-      return;
-    }
-    
-    console.log(`📧 Sending ${templateType} notification to ${recipientEmail} for ${license.name}:`, emailContent);
-    
-    // In a real app, this would actually send the email
-    // This is where you would integrate with a real email sending service
-    
-    // Simulate successful sending
-    toast.success(`Notification sent to ${recipientEmail} for license "${license.name}"`);
   };
 
   return (

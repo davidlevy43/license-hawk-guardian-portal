@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const nodemailer = require('nodemailer');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -135,6 +136,19 @@ async function initializeDatabase() {
 
 // Initialize database on startup
 initializeDatabase();
+
+// Email sending service
+const createTransporter = (config) => {
+  return nodemailer.createTransporter({
+    host: config.smtpServer,
+    port: config.smtpPort,
+    secure: config.smtpPort === 465, // true for 465, false for other ports
+    auth: {
+      user: config.username,
+      pass: config.password,
+    },
+  });
+};
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
@@ -272,6 +286,105 @@ app.get('/api/auth/verify', authenticateToken, (req, res) => {
       role: req.user.role
     }
   });
+});
+
+// Email notification endpoints
+app.post('/api/email/test', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { smtpServer, smtpPort, username, password, senderEmail } = req.body;
+    
+    if (!smtpServer || !smtpPort || !username || !password || !senderEmail) {
+      return res.status(400).json({ error: 'All email settings are required' });
+    }
+
+    const testTransporter = createTransporter({
+      smtpServer,
+      smtpPort: parseInt(smtpPort),
+      username,
+      password
+    });
+
+    // Verify connection
+    await testTransporter.verify();
+    
+    // Send test email
+    await testTransporter.sendMail({
+      from: `"License Manager Test" <${senderEmail}>`,
+      to: senderEmail,
+      subject: 'License Manager - Test Email',
+      text: 'This is a test email from License Manager. Your SMTP configuration is working correctly!',
+      html: '<p>This is a test email from License Manager. Your SMTP configuration is working correctly!</p>'
+    });
+
+    res.json({ success: true, message: 'Test email sent successfully!' });
+  } catch (error) {
+    console.error('Email test error:', error);
+    res.status(500).json({ error: 'Failed to send test email: ' + error.message });
+  }
+});
+
+app.post('/api/email/send-notification', authenticateToken, async (req, res) => {
+  try {
+    const { emailSettings, license, templateType, template } = req.body;
+    
+    if (!emailSettings.smtpServer || !license.serviceOwnerEmail) {
+      return res.status(400).json({ error: 'Email settings and service owner email are required' });
+    }
+
+    const mailTransporter = createTransporter(emailSettings);
+
+    // Replace placeholders in template
+    const processedTemplate = template
+      .replace(/{LICENSE_NAME}/g, license.name)
+      .replace(/{EXPIRY_DATE}/g, new Date(license.renewalDate).toLocaleDateString())
+      .replace(/{DEPARTMENT}/g, license.department || 'N/A')
+      .replace(/{SUPPLIER}/g, license.supplier || 'N/A')
+      .replace(/{COST}/g, license.monthlyCost ? `$${license.monthlyCost}` : 'N/A')
+      .replace(/{SERVICE_OWNER}/g, license.serviceOwner || 'N/A')
+      .replace(/{CARD_LAST_4}/g, license.creditCardDigits || 'N/A');
+
+    // Determine subject based on template type
+    let subject;
+    switch (templateType) {
+      case 'thirtyDays':
+        subject = `License Renewal Notice - ${license.name} (30 days)`;
+        break;
+      case 'sevenDays':
+        subject = `License Renewal Reminder - ${license.name} (7 days)`;
+        break;
+      case 'oneDay':
+        subject = `URGENT: License Expires Tomorrow - ${license.name}`;
+        break;
+      default:
+        subject = `License Renewal Notice - ${license.name}`;
+    }
+
+    // Send email
+    await mailTransporter.sendMail({
+      from: `"${emailSettings.senderName}" <${emailSettings.senderEmail}>`,
+      to: license.serviceOwnerEmail,
+      subject: subject,
+      text: processedTemplate,
+      html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #333;">${subject}</h2>
+        <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          ${processedTemplate.replace(/\n/g, '<br>')}
+        </div>
+        <hr style="margin: 20px 0;">
+        <p style="color: #666; font-size: 12px;">
+          This is an automated message from License Manager.<br>
+          License ID: ${license.id}
+        </p>
+      </div>`
+    });
+
+    console.log(`📧 Email sent successfully to ${license.serviceOwnerEmail} for license ${license.name}`);
+    res.json({ success: true, message: 'Email sent successfully' });
+    
+  } catch (error) {
+    console.error('Email sending error:', error);
+    res.status(500).json({ error: 'Failed to send email: ' + error.message });
+  }
 });
 
 // License routes

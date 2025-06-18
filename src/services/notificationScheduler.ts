@@ -1,4 +1,3 @@
-
 import { addDays, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { License } from "@/types";
 
@@ -20,7 +19,7 @@ export class NotificationScheduler {
     licenses: License[],
     emailSettings: any,
     notificationSettings: any,
-    sendEmailNotification: (license: License, templateType: string) => void
+    sendEmailNotification: (license: License, templateType: string) => Promise<void>
   ) {
     // Clear any existing interval
     this.stop();
@@ -61,22 +60,22 @@ export class NotificationScheduler {
     }
   }
   
-  private checkAndSendNotifications(
+  private async checkAndSendNotifications(
     licenses: License[],
     emailSettings: any,
     notificationSettings: any,
-    sendEmailNotification: (license: License, templateType: string) => void
+    sendEmailNotification: (license: License, templateType: string) => Promise<void>
   ) {
-    if (!notificationSettings.enabled || !emailSettings.automaticSending) {
+    if (!notificationSettings.enabled) {
       console.log("🕐 Automatic notifications disabled");
       return;
     }
-    
+
     if (!this.isEmailConfigured(emailSettings)) {
       console.log("🕐 Email settings not properly configured");
       return;
     }
-    
+
     console.log(`🕐 Checking ${licenses.length} licenses for notifications...`);
     
     const today = new Date();
@@ -85,39 +84,50 @@ export class NotificationScheduler {
     const thirtyDays = addDays(today, 30);
     
     // Find licenses that need notifications
-    const oneDayLicenses = this.findLicensesInRange(licenses, today, oneDay);
-    const sevenDayLicenses = this.findLicensesInRange(licenses, addDays(today, 6), sevenDays);
-    const thirtyDayLicenses = this.findLicensesInRange(licenses, addDays(today, 29), thirtyDays);
+    const oneDayLicenses = this.findLicensesInRange(licenses, today, oneDay)
+      .filter(license => license.serviceOwnerEmail);
+    const sevenDayLicenses = this.findLicensesInRange(licenses, addDays(today, 6), sevenDays)
+      .filter(license => license.serviceOwnerEmail);
+    const thirtyDayLicenses = this.findLicensesInRange(licenses, addDays(today, 29), thirtyDays)
+      .filter(license => license.serviceOwnerEmail);
     
     console.log(`🕐 Found notifications to send:`);
     console.log(`  - 1 day: ${oneDayLicenses.length} licenses`);
     console.log(`  - 7 days: ${sevenDayLicenses.length} licenses`);
     console.log(`  - 30 days: ${thirtyDayLicenses.length} licenses`);
     
-    // Send notifications
+    // Send notifications with error handling
+    const sendPromises: Promise<void>[] = [];
+    
     oneDayLicenses.forEach(license => {
       console.log(`🕐 Sending 1-day notification for: ${license.name}`);
-      sendEmailNotification(license, "oneDay");
+      sendPromises.push(sendEmailNotification(license, "oneDay"));
     });
     
     sevenDayLicenses.forEach(license => {
       console.log(`🕐 Sending 7-day notification for: ${license.name}`);
-      sendEmailNotification(license, "sevenDays");
+      sendPromises.push(sendEmailNotification(license, "sevenDays"));
     });
     
     thirtyDayLicenses.forEach(license => {
       console.log(`🕐 Sending 30-day notification for: ${license.name}`);
-      sendEmailNotification(license, "thirtyDays");
+      sendPromises.push(sendEmailNotification(license, "thirtyDays"));
     });
     
-    const totalSent = oneDayLicenses.length + sevenDayLicenses.length + thirtyDayLicenses.length;
-    if (totalSent > 0) {
-      console.log(`🕐 Total notifications sent: ${totalSent}`);
-    } else {
-      console.log("🕐 No notifications needed today");
+    // Wait for all emails to be sent
+    try {
+      await Promise.allSettled(sendPromises);
+      const totalSent = oneDayLicenses.length + sevenDayLicenses.length + thirtyDayLicenses.length;
+      if (totalSent > 0) {
+        console.log(`🕐 Total notifications processed: ${totalSent}`);
+      } else {
+        console.log("🕐 No notifications needed today");
+      }
+    } catch (error) {
+      console.error("🕐 Error sending notifications:", error);
     }
   }
-  
+
   private findLicensesInRange(licenses: License[], startDate: Date, endDate: Date): License[] {
     return licenses.filter(license => {
       const renewalDate = new Date(license.renewalDate);
@@ -138,14 +148,14 @@ export class NotificationScheduler {
   }
   
   // Manual trigger for testing
-  triggerManualCheck(
+  async triggerManualCheck(
     licenses: License[],
     emailSettings: any,
     notificationSettings: any,
-    sendEmailNotification: (license: License, templateType: string) => void
+    sendEmailNotification: (license: License, templateType: string) => Promise<void>
   ) {
     console.log("🕐 Manual notification check triggered");
-    this.checkAndSendNotifications(licenses, emailSettings, notificationSettings, sendEmailNotification);
+    await this.checkAndSendNotifications(licenses, emailSettings, notificationSettings, sendEmailNotification);
   }
 }
 
