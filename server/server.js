@@ -304,21 +304,111 @@ app.post('/api/email/test', authenticateToken, requireAdmin, async (req, res) =>
       password
     });
 
-    // Verify connection
+    // Verify connection only
     await testTransporter.verify();
     
-    // Send test email
-    await testTransporter.sendMail({
-      from: `"License Manager Test" <${senderEmail}>`,
-      to: senderEmail,
-      subject: 'License Manager - Test Email',
-      text: 'This is a test email from License Manager. Your SMTP configuration is working correctly!',
-      html: '<p>This is a test email from License Manager. Your SMTP configuration is working correctly!</p>'
-    });
-
-    res.json({ success: true, message: 'Test email sent successfully!' });
+    res.json({ success: true, message: 'SMTP connection verified successfully!' });
   } catch (error) {
     console.error('Email test error:', error);
+    res.status(500).json({ error: 'Failed to verify SMTP connection: ' + error.message });
+  }
+});
+
+app.post('/api/email/send-test', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { emailSettings, testEmailAddress } = req.body;
+    
+    if (!emailSettings.smtpServer || !testEmailAddress) {
+      return res.status(400).json({ error: 'Email settings and test email address are required' });
+    }
+
+    const testTransporter = createTransporter(emailSettings);
+
+    // Send actual test email
+    const testEmailContent = {
+      from: `"${emailSettings.senderName}" <${emailSettings.senderEmail}>`,
+      to: testEmailAddress,
+      subject: 'License Manager - Test Email ✅',
+      text: `שלום!
+
+זהו מייל בדיקה מ-License Manager.
+
+הגדרות SMTP שלך עובדות בהצלחה! 🎉
+
+פרטי השליחה:
+- שרת SMTP: ${emailSettings.smtpServer}
+- פורט: ${emailSettings.smtpPort}
+- שולח: ${emailSettings.senderName} <${emailSettings.senderEmail}>
+- תאריך שליחה: ${new Date().toLocaleString('he-IL')}
+
+המערכת מוכנה לשליחת התראות אוטומטיות על רישיונות שפגים.
+
+בברכה,
+License Manager System`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+          <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h1 style="color: #22c55e; text-align: center; margin-bottom: 20px;">
+              ✅ License Manager - Test Email
+            </h1>
+            
+            <div style="background-color: #f0f9ff; padding: 20px; border-radius: 8px; border-left: 4px solid #22c55e; margin: 20px 0;">
+              <h2 style="color: #0f172a; margin-top: 0;">שלום!</h2>
+              <p style="color: #334155; line-height: 1.6;">
+                זהו מייל בדיקה מ-License Manager.<br>
+                <strong>הגדרות SMTP שלך עובדות בהצלחה! 🎉</strong>
+              </p>
+            </div>
+
+            <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #475569; margin-top: 0;">פרטי השליחה:</h3>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b; font-weight: bold;">שרת SMTP:</td>
+                  <td style="padding: 8px 0; color: #334155;">${emailSettings.smtpServer}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b; font-weight: bold;">פורט:</td>
+                  <td style="padding: 8px 0; color: #334155;">${emailSettings.smtpPort}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b; font-weight: bold;">שולח:</td>
+                  <td style="padding: 8px 0; color: #334155;">${emailSettings.senderName} &lt;${emailSettings.senderEmail}&gt;</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #64748b; font-weight: bold;">תאריך שליחה:</td>
+                  <td style="padding: 8px 0; color: #334155;">${new Date().toLocaleString('he-IL')}</td>
+                </tr>
+              </table>
+            </div>
+
+            <div style="background-color: #ecfdf5; padding: 15px; border-radius: 8px; border: 1px solid #bbf7d0;">
+              <p style="color: #166534; margin: 0; text-align: center;">
+                <strong>המערכת מוכנה לשליחת התראות אוטומטיות על רישיונות שפגים</strong>
+              </p>
+            </div>
+
+            <hr style="margin: 30px 0; border: none; border-top: 1px solid #e2e8f0;">
+            
+            <p style="color: #64748b; font-size: 14px; text-align: center; margin: 0;">
+              בברכה,<br>
+              <strong>License Manager System</strong>
+            </p>
+          </div>
+        </div>
+      `
+    };
+
+    await testTransporter.sendMail(testEmailContent);
+
+    console.log(`📧 Test email sent successfully to ${testEmailAddress}`);
+    res.json({ 
+      success: true, 
+      message: `Test email sent successfully to ${testEmailAddress}!` 
+    });
+    
+  } catch (error) {
+    console.error('Test email sending error:', error);
     res.status(500).json({ error: 'Failed to send test email: ' + error.message });
   }
 });

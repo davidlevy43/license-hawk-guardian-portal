@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { API_URL } from "@/services/api/base";
 
 const formSchema = z.object({
   smtpServer: z.string().min(1, "SMTP server is required"),
@@ -29,7 +30,8 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 const EmailSettingsForm: React.FC = () => {
-  const { emailSettings, updateEmailSettings, testEmailConnection } = useNotification();
+  const { emailSettings, updateEmailSettings } = useNotification();
+  const [isTestingEmail, setIsTestingEmail] = React.useState(false);
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -40,25 +42,82 @@ const EmailSettingsForm: React.FC = () => {
     updateEmailSettings(data);
   };
 
+  const sendTestEmail = async () => {
+    const formData = form.getValues();
+    const isValid = await form.trigger();
+    
+    if (!isValid) {
+      toast.error("אנא תקן את השגיאות בטופס לפני שליחת מייל בדיקה");
+      return;
+    }
+    
+    setIsTestingEmail(true);
+    
+    try {
+      console.log("שולח מייל בדיקה עם הגדרות:", formData);
+      
+      const response = await fetch(`${API_URL}/api/email/send-test`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+        },
+        body: JSON.stringify({
+          emailSettings: formData,
+          testEmailAddress: formData.senderEmail
+        })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        toast.success(`מייל בדיקה נשלח בהצלחה ל-${formData.senderEmail}!`);
+        console.log("✅ מייל בדיקה נשלח בהצלחה");
+      } else {
+        toast.error(`שגיאה בשליחת מייל בדיקה: ${data.error}`);
+        console.error("❌ שגיאה בשליחת מייל בדיקה:", data.error);
+      }
+      
+    } catch (error: any) {
+      console.error('שגיאה בשליחת מייל בדיקה:', error);
+      toast.error(`שגיאה בשליחת מייל בדיקה: ${error.message}`);
+    } finally {
+      setIsTestingEmail(false);
+    }
+  };
+
   const handleTestConnection = async () => {
     const formData = form.getValues();
     const isValid = await form.trigger();
     
     if (!isValid) {
-      toast.error("Please fix the form errors before testing connection.");
+      toast.error("אנא תקן את השגיאות בטופס לפני בדיקת החיבור");
       return;
     }
     
     // Save the current form data first
     updateEmailSettings(formData);
     
-    // Test the connection
-    const success = await testEmailConnection();
-    
-    if (success) {
-      toast.success("Connection test successful!");
-    } else {
-      toast.error("Connection test failed. Please check your settings.");
+    try {
+      const response = await fetch(`${API_URL}/api/email/test`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        toast.success("בדיקת חיבור הצליחה!");
+      } else {
+        toast.error(`בדיקת חיבור נכשלה: ${data.error}`);
+      }
+    } catch (error: any) {
+      console.error('שגיאה בבדיקת חיבור:', error);
+      toast.error(`שגיאה בבדיקת חיבור: ${error.message}`);
     }
   };
 
@@ -180,6 +239,14 @@ const EmailSettingsForm: React.FC = () => {
             onClick={handleTestConnection}
           >
             Test Connection
+          </Button>
+          <Button 
+            type="button" 
+            variant="secondary"
+            onClick={sendTestEmail}
+            disabled={isTestingEmail}
+          >
+            {isTestingEmail ? "שולח מייל בדיקה..." : "שלח מייל בדיקה"}
           </Button>
           <Button type="submit">Save Settings</Button>
         </div>
