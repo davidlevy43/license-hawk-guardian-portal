@@ -6,7 +6,16 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const nodemailer = require('nodemailer');
+
+// Try to load nodemailer, but don't fail if it's not available
+let nodemailer = null;
+try {
+  nodemailer = require('nodemailer');
+  console.log('✅ Nodemailer loaded successfully');
+} catch (error) {
+  console.warn('⚠️ Nodemailer not available - email functionality will be disabled');
+  console.warn('To enable email features, install nodemailer: npm install nodemailer');
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -137,8 +146,11 @@ async function initializeDatabase() {
 // Initialize database on startup
 initializeDatabase();
 
-// Email sending service
+// Email sending service - only if nodemailer is available
 const createTransporter = (config) => {
+  if (!nodemailer) {
+    throw new Error('Nodemailer is not available. Please install it to use email features.');
+  }
   return nodemailer.createTransporter({
     host: config.smtpServer,
     port: config.smtpPort,
@@ -288,9 +300,15 @@ app.get('/api/auth/verify', authenticateToken, (req, res) => {
   });
 });
 
-// Email notification endpoints
+// Email notification endpoints - with nodemailer availability check
 app.post('/api/email/test', authenticateToken, requireAdmin, async (req, res) => {
   try {
+    if (!nodemailer) {
+      return res.status(503).json({ 
+        error: 'Email service is not available. Nodemailer package is not installed.' 
+      });
+    }
+
     const { smtpServer, smtpPort, username, password, senderEmail } = req.body;
     
     if (!smtpServer || !smtpPort || !username || !password || !senderEmail) {
@@ -316,6 +334,12 @@ app.post('/api/email/test', authenticateToken, requireAdmin, async (req, res) =>
 
 app.post('/api/email/send-test', authenticateToken, requireAdmin, async (req, res) => {
   try {
+    if (!nodemailer) {
+      return res.status(503).json({ 
+        error: 'Email service is not available. Nodemailer package is not installed.' 
+      });
+    }
+
     const { emailSettings, testEmailAddress } = req.body;
     
     if (!emailSettings.smtpServer || !testEmailAddress) {
@@ -415,6 +439,12 @@ License Manager System`,
 
 app.post('/api/email/send-notification', authenticateToken, async (req, res) => {
   try {
+    if (!nodemailer) {
+      return res.status(503).json({ 
+        error: 'Email service is not available. Nodemailer package is not installed.' 
+      });
+    }
+
     const { emailSettings, license, templateType, template } = req.body;
     
     if (!emailSettings.smtpServer || !license.serviceOwnerEmail) {
