@@ -208,13 +208,29 @@ app.get('/api/health', (req, res) => {
 // Auth routes
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { usernameOrEmail, email, password } = req.body;
+    
+    // Support both the new format (usernameOrEmail) and legacy format (email)
+    const loginIdentifier = usernameOrEmail || email;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+    if (!loginIdentifier || !password) {
+      return res.status(400).json({ error: 'Username/email and password are required' });
     }
 
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    // Check if input is email (contains @) or username
+    const isEmail = loginIdentifier.includes('@');
+    let query, queryParams;
+    
+    if (isEmail) {
+      query = 'SELECT * FROM users WHERE email = $1';
+      queryParams = [loginIdentifier];
+    } else {
+      // For username, we need to check the name field since that's what we store
+      query = 'SELECT * FROM users WHERE name = $1';
+      queryParams = [loginIdentifier];
+    }
+
+    const result = await pool.query(query, queryParams);
     const user = result.rows[0];
 
     if (!user) {
@@ -238,7 +254,9 @@ app.post('/api/auth/login', async (req, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role
+        role: user.role,
+        username: user.name, // Add username field for compatibility
+        createdAt: user.created_at
       }
     });
   } catch (error) {
