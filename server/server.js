@@ -234,23 +234,43 @@ app.post('/api/auth/login', async (req, res) => {
       queryParams = [loginIdentifier];
     }
 
+    console.log('🔐 [SERVER] Executing query:', query, 'with params:', queryParams);
+    
     const result = await pool.query(query, queryParams);
     const user = result.rows[0];
 
     console.log('🔐 [SERVER] User found:', user ? { id: user.id, name: user.name, email: user.email } : 'None');
 
     if (!user) {
+      console.log('🔐 [SERVER] No user found with identifier:', loginIdentifier);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     console.log('🔐 [SERVER] Comparing password...');
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    console.log('🔐 [SERVER] Password valid:', isValidPassword);
+    console.log('🔐 [SERVER] Password from request:', password ? '[PROVIDED]' : '[NOT PROVIDED]');
+    console.log('🔐 [SERVER] Hashed password from DB:', user.password ? '[EXISTS]' : '[MISSING]');
+    
+    // Check if bcrypt is available and password hash exists
+    if (!user.password) {
+      console.error('🔐 [SERVER] User has no password hash in database');
+      return res.status(500).json({ error: 'User account configuration error' });
+    }
+
+    let isValidPassword = false;
+    try {
+      isValidPassword = await bcrypt.compare(password, user.password);
+      console.log('🔐 [SERVER] Password valid:', isValidPassword);
+    } catch (bcryptError) {
+      console.error('🔐 [SERVER] Bcrypt error:', bcryptError);
+      return res.status(500).json({ error: 'Password verification failed' });
+    }
     
     if (!isValidPassword) {
+      console.log('🔐 [SERVER] Invalid password for user:', user.email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    // Generate JWT token
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       JWT_SECRET,
@@ -272,7 +292,12 @@ app.post('/api/auth/login', async (req, res) => {
     });
   } catch (error) {
     console.error('🔐 [SERVER] Login error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('🔐 [SERVER] Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    res.status(500).json({ error: 'Internal server error: ' + error.message });
   }
 });
 
