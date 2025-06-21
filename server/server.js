@@ -217,14 +217,18 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Username/email and password are required' });
     }
 
+    console.log('🔐 [SERVER] Login attempt for:', loginIdentifier);
+
     // Check if input is email (contains @) or username
     const isEmail = loginIdentifier.includes('@');
     let query, queryParams;
     
     if (isEmail) {
+      console.log('🔐 [SERVER] Searching by email');
       query = 'SELECT * FROM users WHERE email = $1';
       queryParams = [loginIdentifier];
     } else {
+      console.log('🔐 [SERVER] Searching by username (name field)');
       // For username, we need to check the name field since that's what we store
       query = 'SELECT * FROM users WHERE name = $1';
       queryParams = [loginIdentifier];
@@ -233,11 +237,16 @@ app.post('/api/auth/login', async (req, res) => {
     const result = await pool.query(query, queryParams);
     const user = result.rows[0];
 
+    console.log('🔐 [SERVER] User found:', user ? { id: user.id, name: user.name, email: user.email } : 'None');
+
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    console.log('🔐 [SERVER] Comparing password...');
     const isValidPassword = await bcrypt.compare(password, user.password);
+    console.log('🔐 [SERVER] Password valid:', isValidPassword);
+    
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -247,6 +256,8 @@ app.post('/api/auth/login', async (req, res) => {
       JWT_SECRET,
       { expiresIn: '24h' }
     );
+
+    console.log('🔐 [SERVER] Login successful for user:', user.email);
 
     res.json({
       token,
@@ -260,7 +271,7 @@ app.post('/api/auth/login', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('🔐 [SERVER] Login error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
