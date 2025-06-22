@@ -1,4 +1,3 @@
-
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
@@ -109,7 +108,7 @@ async function initializeDatabase() {
       CREATE TABLE IF NOT EXISTS licenses (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
-        type VARCHAR(100) NOT NULL,
+        type VARCHAR(100),
         department VARCHAR(100),
         supplier VARCHAR(255),
         start_date DATE,
@@ -127,15 +126,49 @@ async function initializeDatabase() {
       )
     `);
 
-    // Create default admin user
+    // Create default admin user with proper password hash
+    console.log('🔐 [SERVER] Checking for existing admin users...');
     const adminExists = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@example.com']);
     if (adminExists.rows.length === 0) {
+      console.log('🔐 [SERVER] Creating default admin user...');
       const hashedPassword = await bcrypt.hash('admin123', 10);
       await pool.query(
         'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4)',
-        ['admin@example.com', hashedPassword, 'Admin User', 'admin']
+        ['admin@example.com', hashedPassword, 'admin', 'admin']
       );
-      console.log('Default admin user created');
+      console.log('🔐 [SERVER] Default admin user created with email: admin@example.com');
+    } else {
+      console.log('🔐 [SERVER] Admin user already exists');
+      // Check if the existing admin user has a proper password hash
+      const adminUser = await pool.query('SELECT password FROM users WHERE email = $1', ['admin@example.com']);
+      if (!adminUser.rows[0].password || adminUser.rows[0].password.length < 10) {
+        console.log('🔐 [SERVER] Updating admin user password hash...');
+        const hashedPassword = await bcrypt.hash('admin123', 10);
+        await pool.query('UPDATE users SET password = $1 WHERE email = $2', [hashedPassword, 'admin@example.com']);
+        console.log('🔐 [SERVER] Admin user password updated');
+      }
+    }
+
+    // Create default David user with proper password hash
+    const davidExists = await pool.query('SELECT id FROM users WHERE email = $1', ['david@rotem.com']);
+    if (davidExists.rows.length === 0) {
+      console.log('🔐 [SERVER] Creating default David user...');
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      await pool.query(
+        'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4)',
+        ['david@rotem.com', hashedPassword, 'david', 'admin']
+      );
+      console.log('🔐 [SERVER] Default David user created with email: david@rotem.com');
+    } else {
+      console.log('🔐 [SERVER] David user already exists');
+      // Check if the existing David user has a proper password hash
+      const davidUser = await pool.query('SELECT password FROM users WHERE email = $1', ['david@rotem.com']);
+      if (!davidUser.rows[0].password || davidUser.rows[0].password.length < 10) {
+        console.log('🔐 [SERVER] Updating David user password hash...');
+        const hashedPassword = await bcrypt.hash('admin123', 10);
+        await pool.query('UPDATE users SET password = $1 WHERE email = $2', [hashedPassword, 'david@rotem.com']);
+        console.log('🔐 [SERVER] David user password updated');
+      }
     }
 
     console.log('Database initialized successfully');
@@ -152,7 +185,7 @@ const createTransporter = (config) => {
   if (!nodemailer) {
     throw new Error('Nodemailer is not available. Please install it to use email features.');
   }
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     host: config.smtpServer,
     port: config.smtpPort,
     secure: config.smtpPort === 465, // true for 465, false for other ports
