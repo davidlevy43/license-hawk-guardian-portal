@@ -1,3 +1,4 @@
+
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
@@ -68,10 +69,10 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Database connection
+// Database connection - Fix SSL configuration for local development
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://admin:admin123@localhost:5432/license_manager',
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: false // Explicitly disable SSL for local development
 });
 
 // Test database connection
