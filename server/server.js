@@ -1,3 +1,4 @@
+
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
@@ -77,9 +78,9 @@ const pool = new Pool({
 // Test database connection
 pool.connect((err, client, release) => {
   if (err) {
-    console.error('Error acquiring client', err.stack);
+    console.error('❌ [DB] Error acquiring client', err.stack);
   } else {
-    console.log('Database connected successfully');
+    console.log('✅ [DB] Database connected successfully');
     release();
   }
 });
@@ -90,6 +91,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-here-change-in-pro
 // Database initialization
 async function initializeDatabase() {
   try {
+    console.log('🔧 [DB] Starting database initialization...');
+    
     // Create users table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -102,6 +105,7 @@ async function initializeDatabase() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    console.log('✅ [DB] Users table ensured');
 
     // Create licenses table
     await pool.query(`
@@ -125,23 +129,30 @@ async function initializeDatabase() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    console.log('✅ [DB] Licenses table ensured');
 
     // Create default admin user with proper password hash
     console.log('🔐 [SERVER] Checking for existing admin users...');
-    const adminExists = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@example.com']);
+    const adminExists = await pool.query('SELECT id, email, password FROM users WHERE email = $1', ['admin@example.com']);
+    console.log('🔐 [SERVER] Admin query result:', adminExists.rows.length > 0 ? 'Found' : 'Not found');
+    
     if (adminExists.rows.length === 0) {
       console.log('🔐 [SERVER] Creating default admin user...');
       const hashedPassword = await bcrypt.hash('admin123', 10);
-      await pool.query(
-        'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4)',
+      console.log('🔐 [SERVER] Password hashed successfully, length:', hashedPassword.length);
+      
+      const insertResult = await pool.query(
+        'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, name',
         ['admin@example.com', hashedPassword, 'admin', 'admin']
       );
-      console.log('🔐 [SERVER] Default admin user created with email: admin@example.com');
+      console.log('🔐 [SERVER] Default admin user created:', insertResult.rows[0]);
     } else {
-      console.log('🔐 [SERVER] Admin user already exists');
+      const existingUser = adminExists.rows[0];
+      console.log('🔐 [SERVER] Admin user already exists:', { id: existingUser.id, email: existingUser.email });
+      console.log('🔐 [SERVER] Existing password hash length:', existingUser.password ? existingUser.password.length : 'NULL');
+      
       // Check if the existing admin user has a proper password hash
-      const adminUser = await pool.query('SELECT password FROM users WHERE email = $1', ['admin@example.com']);
-      if (!adminUser.rows[0].password || adminUser.rows[0].password.length < 10) {
+      if (!existingUser.password || existingUser.password.length < 10) {
         console.log('🔐 [SERVER] Updating admin user password hash...');
         const hashedPassword = await bcrypt.hash('admin123', 10);
         await pool.query('UPDATE users SET password = $1 WHERE email = $2', [hashedPassword, 'admin@example.com']);
@@ -150,20 +161,24 @@ async function initializeDatabase() {
     }
 
     // Create default David user with proper password hash
-    const davidExists = await pool.query('SELECT id FROM users WHERE email = $1', ['david@rotem.com']);
+    const davidExists = await pool.query('SELECT id, email, password FROM users WHERE email = $1', ['david@rotem.com']);
+    console.log('🔐 [SERVER] David query result:', davidExists.rows.length > 0 ? 'Found' : 'Not found');
+    
     if (davidExists.rows.length === 0) {
       console.log('🔐 [SERVER] Creating default David user...');
       const hashedPassword = await bcrypt.hash('admin123', 10);
-      await pool.query(
-        'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4)',
+      const insertResult = await pool.query(
+        'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, name',
         ['david@rotem.com', hashedPassword, 'david', 'admin']
       );
-      console.log('🔐 [SERVER] Default David user created with email: david@rotem.com');
+      console.log('🔐 [SERVER] Default David user created:', insertResult.rows[0]);
     } else {
-      console.log('🔐 [SERVER] David user already exists');
+      const existingUser = davidExists.rows[0];
+      console.log('🔐 [SERVER] David user already exists:', { id: existingUser.id, email: existingUser.email });
+      console.log('🔐 [SERVER] Existing password hash length:', existingUser.password ? existingUser.password.length : 'NULL');
+      
       // Check if the existing David user has a proper password hash
-      const davidUser = await pool.query('SELECT password FROM users WHERE email = $1', ['david@rotem.com']);
-      if (!davidUser.rows[0].password || davidUser.rows[0].password.length < 10) {
+      if (!existingUser.password || existingUser.password.length < 10) {
         console.log('🔐 [SERVER] Updating David user password hash...');
         const hashedPassword = await bcrypt.hash('admin123', 10);
         await pool.query('UPDATE users SET password = $1 WHERE email = $2', [hashedPassword, 'david@rotem.com']);
@@ -171,9 +186,14 @@ async function initializeDatabase() {
       }
     }
 
-    console.log('Database initialized successfully');
+    // Verify users were created correctly
+    const allUsers = await pool.query('SELECT id, email, name, role FROM users ORDER BY id');
+    console.log('✅ [DB] All users in database:', allUsers.rows);
+
+    console.log('✅ [DB] Database initialized successfully');
   } catch (error) {
-    console.error('Database initialization error:', error);
+    console.error('❌ [DB] Database initialization error:', error);
+    console.error('❌ [DB] Error stack:', error.stack);
   }
 }
 
@@ -248,10 +268,12 @@ app.post('/api/auth/login', async (req, res) => {
     const loginIdentifier = usernameOrEmail || email;
 
     if (!loginIdentifier || !password) {
+      console.log('🔐 [SERVER] Missing credentials in request');
       return res.status(400).json({ error: 'Username/email and password are required' });
     }
 
     console.log('🔐 [SERVER] Login attempt for:', loginIdentifier);
+    console.log('🔐 [SERVER] Password provided:', password ? 'YES' : 'NO');
 
     // Check if input is email (contains @) or username
     const isEmail = loginIdentifier.includes('@');
@@ -271,29 +293,43 @@ app.post('/api/auth/login', async (req, res) => {
     console.log('🔐 [SERVER] Executing query:', query, 'with params:', queryParams);
     
     const result = await pool.query(query, queryParams);
+    console.log('🔐 [SERVER] Query returned', result.rows.length, 'rows');
+    
     const user = result.rows[0];
-
-    console.log('🔐 [SERVER] User found:', user ? { id: user.id, name: user.name, email: user.email } : 'None');
 
     if (!user) {
       console.log('🔐 [SERVER] No user found with identifier:', loginIdentifier);
+      
+      // Debug: Show all users in database
+      const allUsers = await pool.query('SELECT id, email, name FROM users');
+      console.log('🔐 [SERVER] All users in database:', allUsers.rows);
+      
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    console.log('🔐 [SERVER] Comparing password...');
-    console.log('🔐 [SERVER] Password from request:', password ? '[PROVIDED]' : '[NOT PROVIDED]');
-    console.log('🔐 [SERVER] Hashed password from DB:', user.password ? '[EXISTS]' : '[MISSING]');
-    
+    console.log('🔐 [SERVER] User found:', { 
+      id: user.id, 
+      name: user.name, 
+      email: user.email,
+      role: user.role,
+      hasPassword: !!user.password,
+      passwordLength: user.password ? user.password.length : 0
+    });
+
     // Check if bcrypt is available and password hash exists
     if (!user.password) {
       console.error('🔐 [SERVER] User has no password hash in database');
       return res.status(500).json({ error: 'User account configuration error' });
     }
 
+    console.log('🔐 [SERVER] Comparing password...');
+    console.log('🔐 [SERVER] Input password:', password);
+    console.log('🔐 [SERVER] Stored hash length:', user.password.length);
+    
     let isValidPassword = false;
     try {
       isValidPassword = await bcrypt.compare(password, user.password);
-      console.log('🔐 [SERVER] Password valid:', isValidPassword);
+      console.log('🔐 [SERVER] Password comparison result:', isValidPassword);
     } catch (bcryptError) {
       console.error('🔐 [SERVER] Bcrypt error:', bcryptError);
       return res.status(500).json({ error: 'Password verification failed' });
