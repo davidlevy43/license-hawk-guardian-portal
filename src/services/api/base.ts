@@ -16,6 +16,12 @@ const getCurrentHostIP = () => {
   return hostname;
 };
 
+// Check if we're in a preview environment
+const isPreviewEnvironment = () => {
+  return window.location.hostname.includes('lovableproject.com') || 
+         window.location.hostname.includes('lovable.app');
+};
+
 // Update API URL for network setup
 export const updateApiUrl = (newUrl: string) => {
   API_URL = newUrl;
@@ -28,6 +34,10 @@ export const updateApiUrl = (newUrl: string) => {
 const storedUrl = sessionStorage.getItem('api_server_url');
 if (storedUrl) {
   API_URL = storedUrl;
+} else if (isPreviewEnvironment()) {
+  // In preview environment, set a placeholder URL that will trigger preview mode
+  API_URL = 'http://preview-environment:3001';
+  console.log('Preview environment detected, using mock API');
 } else {
   // Auto-detect based on current hostname
   const currentHost = getCurrentHostIP();
@@ -37,6 +47,11 @@ if (storedUrl) {
 
 // Helper function to make API requests
 export const fetchAPI = async <T>(endpoint: string, options: RequestInit = {}): Promise<T> => {
+  // In preview environment, throw an error to trigger fallback authentication
+  if (isPreviewEnvironment() && API_URL.includes('preview-environment')) {
+    throw new Error('Server connection failed');
+  }
+  
   const url = `${API_URL}/api${endpoint}`;
   
   console.log(`Making ${options.method || 'GET'} request to ${url}`);

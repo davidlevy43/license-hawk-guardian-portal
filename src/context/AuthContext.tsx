@@ -22,6 +22,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const navigate = useNavigate();
 
+  // Check if we're in a preview environment
+  const isPreviewEnvironment = () => {
+    return window.location.hostname.includes('lovableproject.com') || 
+           window.location.hostname.includes('lovable.app');
+  };
+
   // Function to check if token is valid and get current user
   const validateSession = async () => {
     const token = sessionStorage.getItem("authToken");
@@ -37,6 +43,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error("No user ID found");
       }
       
+      // In preview environment, create mock user data
+      if (isPreviewEnvironment()) {
+        const mockUser = {
+          id: userId,
+          username: userId.includes("david") ? "david" : "admin",
+          email: userId.includes("david") ? "david@rotem.com" : "admin@example.com",
+          role: UserRole.ADMIN,
+          createdAt: new Date()
+        };
+        setCurrentUser(mockUser);
+        setIsLoading(false);
+        return;
+      }
+      
       // Fetch the current user data from API
       const user = await fetchAPI<User>(`/users/${userId}`);
       setCurrentUser(user);
@@ -45,7 +65,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Clear invalid session data
       sessionStorage.removeItem("authToken");
       sessionStorage.removeItem("userId");
-      toast.error("Your session has expired. Please log in again.");
+      if (!isPreviewEnvironment()) {
+        toast.error("Your session has expired. Please log in again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -64,8 +86,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log("🔐 [CLIENT] Password length:", password ? password.length : 0);
       console.log("🔐 [CLIENT] API_URL:", API_URL);
       
-      // For Lovable preview environment, we'll use a simpler approach
-      if (window.location.hostname.includes('lovableproject.com')) {
+      // For Lovable preview environment, use simplified approach
+      if (isPreviewEnvironment()) {
         console.log("🔐 [CLIENT] Using simplified login for preview environment");
         
         // Only accept our demo credentials
