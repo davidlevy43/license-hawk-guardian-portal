@@ -88,11 +88,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log("🔐 [CLIENT] Starting login process...");
       console.log("🔐 [CLIENT] Username/Email:", usernameOrEmail);
       console.log("🔐 [CLIENT] Password length:", password ? password.length : 0);
-      console.log("🔐 [CLIENT] API_URL:", API_URL);
+      console.log("🔐 [CLIENT] Current hostname:", window.location.hostname);
       
-      // For Lovable preview environment, use simplified approach
+      // Check if we're in preview environment first
       if (isPreviewEnvironment()) {
-        console.log("🔐 [CLIENT] Using simplified login for preview environment");
+        console.log("🔐 [CLIENT] Preview environment detected - using mock authentication");
         
         // Only accept our demo credentials
         if ((usernameOrEmail.toLowerCase() === "admin@example.com" || usernameOrEmail.toLowerCase() === "david@rotem.com" || 
@@ -112,7 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
           
           // Store authentication info in sessionStorage
-          sessionStorage.setItem("authToken", "secure-token");
+          sessionStorage.setItem("authToken", "preview-mock-token");
           sessionStorage.setItem("userId", userId);
           
           setCurrentUser(mockUser);
@@ -126,7 +126,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
       
-      console.log("🔐 [CLIENT] Attempting server login...");
+      // Only try server login if NOT in preview environment
+      console.log("🔐 [CLIENT] Not in preview environment - attempting server login...");
+      console.log("🔐 [CLIENT] API_URL:", API_URL);
       
       // First test if the server is available
       console.log("🔐 [CLIENT] Testing server health...");
