@@ -89,6 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log("🔐 [CLIENT] Username/Email:", usernameOrEmail);
       console.log("🔐 [CLIENT] Password length:", password ? password.length : 0);
       console.log("🔐 [CLIENT] Current hostname:", window.location.hostname);
+      console.log("🔐 [CLIENT] Preview check result:", isPreviewEnvironment());
       
       // Check if we're in preview environment first
       if (isPreviewEnvironment()) {
@@ -126,8 +127,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
       
-      // Only try server login if NOT in preview environment
-      console.log("🔐 [CLIENT] Not in preview environment - attempting server login...");
+      // If we reach here, it means we're NOT in preview environment - this is a real server
+      console.log("🔐 [CLIENT] Real server environment - attempting server login...");
       console.log("🔐 [CLIENT] API_URL:", API_URL);
       
       // First test if the server is available
