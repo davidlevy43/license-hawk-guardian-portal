@@ -18,8 +18,11 @@ const getCurrentHostIP = () => {
 
 // Check if we're in a preview environment
 const isPreviewEnvironment = () => {
-  return window.location.hostname.includes('lovableproject.com') || 
-         window.location.hostname.includes('lovable.app');
+  const hostname = window.location.hostname;
+  console.log('🔍 Checking hostname for preview environment:', hostname);
+  const isPreview = hostname.includes('lovableproject.com') || hostname.includes('lovable.app');
+  console.log('🔍 Is preview environment:', isPreview);
+  return isPreview;
 };
 
 // Update API URL for network setup
@@ -34,10 +37,11 @@ export const updateApiUrl = (newUrl: string) => {
 const storedUrl = sessionStorage.getItem('api_server_url');
 if (storedUrl) {
   API_URL = storedUrl;
+  console.log('Using stored API URL:', API_URL);
 } else if (isPreviewEnvironment()) {
   // In preview environment, set a placeholder URL that will trigger preview mode
   API_URL = 'http://preview-environment:3001';
-  console.log('Preview environment detected, using mock API');
+  console.log('Preview environment detected, using mock API:', API_URL);
 } else {
   // Auto-detect based on current hostname
   const currentHost = getCurrentHostIP();
@@ -49,6 +53,7 @@ if (storedUrl) {
 export const fetchAPI = async <T>(endpoint: string, options: RequestInit = {}): Promise<T> => {
   // In preview environment, throw an error to trigger fallback authentication
   if (isPreviewEnvironment() && API_URL.includes('preview-environment')) {
+    console.log('🔍 Preview environment detected, throwing error to trigger mock auth');
     throw new Error('Server connection failed');
   }
   

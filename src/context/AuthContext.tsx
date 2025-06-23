@@ -24,8 +24,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Check if we're in a preview environment
   const isPreviewEnvironment = () => {
-    return window.location.hostname.includes('lovableproject.com') || 
-           window.location.hostname.includes('lovable.app');
+    const hostname = window.location.hostname;
+    console.log('🔍 [AUTH] Checking hostname for preview environment:', hostname);
+    const isPreview = hostname.includes('lovableproject.com') || hostname.includes('lovable.app');
+    console.log('🔍 [AUTH] Is preview environment:', isPreview);
+    return isPreview;
   };
 
   // Function to check if token is valid and get current user
@@ -45,6 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // In preview environment, create mock user data
       if (isPreviewEnvironment()) {
+        console.log('🔍 [AUTH] Creating mock user for preview environment, userId:', userId);
         const mockUser = {
           id: userId,
           username: userId.includes("david") ? "david" : "admin",
