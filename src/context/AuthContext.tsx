@@ -26,7 +26,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isPreviewEnvironment = () => {
     const hostname = window.location.hostname;
     console.log('🔍 [AUTH] Checking hostname for preview environment:', hostname);
-    const isPreview = hostname.includes('lovableproject.com') || hostname.includes('lovable.app');
+    const isPreview = hostname.includes('lovableproject.com') || 
+                     hostname.includes('lovable.app') || 
+                     hostname.includes('preview');
     console.log('🔍 [AUTH] Is preview environment:', isPreview);
     return isPreview;
   };
@@ -91,8 +93,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log("🔐 [CLIENT] Current hostname:", window.location.hostname);
       console.log("🔐 [CLIENT] Preview check result:", isPreviewEnvironment());
       
-      // Check if we're in preview environment first
-      if (isPreviewEnvironment()) {
+      // Check if we're in preview environment first - force preview mode for Lovable
+      const isPreview = isPreviewEnvironment();
+      console.log("🔐 [CLIENT] Is preview environment:", isPreview);
+      
+      if (isPreview) {
         console.log("🔐 [CLIENT] Preview environment detected - using mock authentication");
         
         // Only accept our demo credentials
