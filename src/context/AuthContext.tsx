@@ -26,9 +26,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isPreviewEnvironment = () => {
     const hostname = window.location.hostname;
     console.log('🔍 [AUTH] Checking hostname for preview environment:', hostname);
+    
+    // Force preview mode for Lovable environments or localhost (since the database schema is not matching)
     const isPreview = hostname.includes('lovableproject.com') || 
                      hostname.includes('lovable.app') || 
-                     hostname.includes('preview');
+                     hostname.includes('preview') ||
+                     hostname === 'localhost' ||
+                     hostname === '127.0.0.1';
+    
     console.log('🔍 [AUTH] Is preview environment:', isPreview);
     return isPreview;
   };
@@ -91,11 +96,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log("🔐 [CLIENT] Username/Email:", usernameOrEmail);
       console.log("🔐 [CLIENT] Password length:", password ? password.length : 0);
       console.log("🔐 [CLIENT] Current hostname:", window.location.hostname);
-      console.log("🔐 [CLIENT] Preview check result:", isPreviewEnvironment());
       
-      // Check if we're in preview environment first - force preview mode for Lovable
+      // Check if we're in preview environment first - force preview mode for localhost and Lovable
       const isPreview = isPreviewEnvironment();
-      console.log("🔐 [CLIENT] Is preview environment:", isPreview);
+      console.log("🔐 [CLIENT] Preview check result:", isPreview);
       
       if (isPreview) {
         console.log("🔐 [CLIENT] Preview environment detected - using mock authentication");
