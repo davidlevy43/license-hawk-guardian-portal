@@ -3,10 +3,11 @@
 
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id SERIAL PRIMARY KEY,
     username VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'user',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -14,7 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- Licenses table
 CREATE TABLE IF NOT EXISTS licenses (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     type VARCHAR(100) NOT NULL,
     department VARCHAR(255) NOT NULL,
@@ -40,12 +41,12 @@ CREATE INDEX IF NOT EXISTS idx_licenses_status ON licenses(status);
 CREATE INDEX IF NOT EXISTS idx_licenses_department ON licenses(department);
 
 -- Insert default admin user (password: admin123)
-INSERT INTO users (username, email, password_hash, role) 
-VALUES ('admin', 'admin@example.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin')
+INSERT INTO users (username, email, password, name, role) 
+VALUES ('admin', 'admin@example.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', 'admin')
 ON CONFLICT (email) DO NOTHING;
 
-INSERT INTO users (username, email, password_hash, role) 
-VALUES ('david', 'david@rotem.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin')
+INSERT INTO users (username, email, password, name, role) 
+VALUES ('david', 'david@rotem.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'david', 'admin')
 ON CONFLICT (email) DO NOTHING;
 
 -- Create triggers for automatic updated_at timestamps
