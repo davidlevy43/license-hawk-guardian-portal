@@ -22,17 +22,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const navigate = useNavigate();
 
-  // Check if we're in a preview environment
+  // Check if we're in a preview environment (only Lovable hosted environments)
   const isPreviewEnvironment = () => {
     const hostname = window.location.hostname;
     console.log('🔍 [AUTH] Checking hostname for preview environment:', hostname);
     
-    // Force preview mode for Lovable environments or localhost (since the database schema is not matching)
+    // Only force preview mode for Lovable environments, NOT localhost
     const isPreview = hostname.includes('lovableproject.com') || 
                      hostname.includes('lovable.app') || 
-                     hostname.includes('preview') ||
-                     hostname === 'localhost' ||
-                     hostname === '127.0.0.1';
+                     hostname.includes('preview');
     
     console.log('🔍 [AUTH] Is preview environment:', isPreview);
     return isPreview;
@@ -97,7 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log("🔐 [CLIENT] Password length:", password ? password.length : 0);
       console.log("🔐 [CLIENT] Current hostname:", window.location.hostname);
       
-      // Check if we're in preview environment first - force preview mode for localhost and Lovable
+      // Check if we're in preview environment first
       const isPreview = isPreviewEnvironment();
       console.log("🔐 [CLIENT] Preview check result:", isPreview);
       
@@ -136,7 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
       
-      // If we reach here, it means we're NOT in preview environment - this is a real server
+      // If we reach here, it means we're NOT in preview environment - this is a real server (including localhost)
       console.log("🔐 [CLIENT] Real server environment - attempting server login...");
       console.log("🔐 [CLIENT] API_URL:", API_URL);
       
