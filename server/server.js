@@ -1,4 +1,3 @@
-
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
@@ -225,8 +224,8 @@ const authenticateToken = (req, res, next) => {
     return res.status(401).json({ error: 'Access token required' });
   }
 
-  // Check for preview/mock tokens
-  if (token === 'preview-mock-token' || token === 'secure-token') {
+  // Check for preview/mock tokens ONLY in actual preview environments
+  if ((token === 'preview-mock-token' || token === 'secure-token') && isPreviewEnvironment()) {
     // Mock user for preview environment
     req.user = {
       id: 'admin-id',
@@ -888,8 +887,8 @@ app.delete('/api/licenses/:id', authenticateToken, async (req, res) => {
 // User management routes (admin only)
 app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    // In preview mode, return mock users
-    if (req.user.id === 'admin-id' && (req.user.email === 'admin@example.com' || req.user.email === 'david@rotem.com')) {
+    // Only use mock data in actual preview environments
+    if (isPreviewEnvironment() && req.user.id === 'admin-id') {
       const mockUsers = [
         {
           id: 'admin-id',
@@ -921,8 +920,8 @@ app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
 
 app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    // In preview mode, return mock success
-    if (req.user.id === 'admin-id') {
+    // Only use mock data in actual preview environments
+    if (isPreviewEnvironment() && req.user.id === 'admin-id') {
       const { email, name, role } = req.body;
       const mockUser = {
         id: 'mock-' + Date.now(),
@@ -961,8 +960,8 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
 
 app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    // In preview mode, return mock success
-    if (req.user.id === 'admin-id') {
+    // Only use mock data in actual preview environments
+    if (isPreviewEnvironment() && req.user.id === 'admin-id') {
       const { id } = req.params;
       const { email, name, role } = req.body;
       const mockUser = {
@@ -1006,8 +1005,8 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
 
 app.delete('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    // In preview mode, return mock success
-    if (req.user.id === 'admin-id') {
+    // Only use mock data in actual preview environments
+    if (isPreviewEnvironment() && req.user.id === 'admin-id') {
       const { id } = req.params;
       // Don't allow deleting admin in preview
       if (id === 'admin-id' || id === 'david-id') {
@@ -1080,3 +1079,10 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
   // Keep server running despite errors
 });
+
+// Helper function to detect preview environment
+function isPreviewEnvironment() {
+  // Only consider it preview if hostname contains lovable domains
+  const hostname = process.env.HOSTNAME || 'localhost';
+  return hostname.includes('lovableproject.com') || hostname.includes('lovable.app');
+}
