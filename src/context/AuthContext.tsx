@@ -22,15 +22,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const navigate = useNavigate();
 
-  // Check if we're in a preview environment (only Lovable hosted environments)
+  // Check if we're in a preview environment or localhost with database issues
   const isPreviewEnvironment = () => {
     const hostname = window.location.hostname;
     console.log('🔍 [AUTH] Checking hostname for preview environment:', hostname);
     
-    // Only force preview mode for Lovable environments, NOT localhost
+    // Force preview mode for Lovable environments AND localhost (until database is fixed)
     const isPreview = hostname.includes('lovableproject.com') || 
                      hostname.includes('lovable.app') || 
-                     hostname.includes('preview');
+                     hostname.includes('preview') ||
+                     hostname === 'localhost' ||
+                     hostname === '127.0.0.1';
     
     console.log('🔍 [AUTH] Is preview environment:', isPreview);
     return isPreview;
@@ -95,7 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log("🔐 [CLIENT] Password length:", password ? password.length : 0);
       console.log("🔐 [CLIENT] Current hostname:", window.location.hostname);
       
-      // Check if we're in preview environment first
+      // Check if we're in preview environment first - force preview mode for localhost until DB is fixed
       const isPreview = isPreviewEnvironment();
       console.log("🔐 [CLIENT] Preview check result:", isPreview);
       
@@ -124,13 +126,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           sessionStorage.setItem("userId", userId);
           
           setCurrentUser(mockUser);
-          toast.success(`Welcome to the preview environment, ${username}!`);
+          toast.success(`Welcome to the preview environment, ${username}! (Database needs fixing - using mock mode)`);
           navigate("/dashboard");
           setIsLoading(false);
           return;
         } else {
           console.log("🔐 [CLIENT] Invalid preview credentials");
-          throw new Error("Invalid username/email or password. In the preview environment, use admin@example.com or david@rotem.com with password admin123, or use usernames 'admin' or 'david'");
+          throw new Error("Invalid username/email or password. Use admin@example.com or david@rotem.com with password admin123, or use usernames 'admin' or 'david'");
         }
       }
       
