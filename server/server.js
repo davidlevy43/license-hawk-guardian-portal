@@ -856,26 +856,79 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { username, email, role, password } = req.body;
     
+    console.log('🔐 [SERVER] Creating new user request received:', { username, email, role, hasPassword: !!password });
+    
     if (!username || !email || !password) {
+      console.log('🔐 [SERVER] Missing required fields:', { username: !!username, email: !!email, password: !!password });
       return res.status(400).json({ error: 'Username, email, and password are required' });
     }
 
-    console.log('🔐 [SERVER] Creating new user:', { username, email, role });
+    console.log('🔐 [SERVER] Checking if user already exists...');
+    
+    // Check if user already exists by email or username
+    const existingUserCheck = await pool.query(
+      'SELECT id, email, name FROM users WHERE email = $1 OR name = $2', 
+      [email, username]
+    );
+    
+    if (existingUserCheck.rows.length > 0) {
+      const existing = existingUserCheck.rows[0];
+      console.log('🔐 [SERVER] User already exists:', { id: existing.id, email: existing.email, name: existing.name });
+      return res.status(409).json({ error: 'Username or email already exists' });
+    }
 
+    console.log('🔐 [SERVER] User does not exist, proceeding with creation...');
+    console.log('🔐 [SERVER] Hashing password...');
+    
     const hashedPassword = await bcrypt.hash(password, 10);
+    console.log('🔐 [SERVER] Password hashed successfully');
+    
+    console.log('🔐 [SERVER] Inserting user into database...');
     const result = await pool.query(
-      'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, name as username, email, role, created_at as "createdAt"',
+      `INSERT INTO users (name, email, password, role) 
+       VALUES ($1, $2, $3, $4) 
+       RETURNING id, name as username, email, role, created_at as "createdAt"`,
       [username, email, hashedPassword, role || 'user']
     );
     
-    console.log('🔐 [SERVER] User created successfully:', result.rows[0].username);
-    res.status(201).json(result.rows[0]);
+    if (result.rows.length === 0) {
+      console.error('🔐 [SERVER] No rows returned from insert query');
+      return res.status(500).json({ error: 'Failed to create user - no data returned' });
+    }
+    
+    const newUser = result.rows[0];
+    console.log('🔐 [SERVER] User created successfully:', { 
+      id: newUser.id, 
+      username: newUser.username, 
+      email: newUser.email, 
+      role: newUser.role 
+    });
+    
+    // Return the created user with consistent format
+    res.status(201).json({
+      id: newUser.id.toString(),
+      username: newUser.username,
+      email: newUser.email,
+      role: newUser.role,
+      createdAt: newUser.createdAt
+    });
+    
   } catch (error) {
     console.error('🔐 [SERVER] Error creating user:', error);
-    if (error.code === '23505') {
+    console.error('🔐 [SERVER] Error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      stack: error.stack
+    });
+    
+    if (error.code === '23505') { // PostgreSQL unique violation
+      console.log('🔐 [SERVER] Unique constraint violation detected');
       return res.status(409).json({ error: 'Username or email already exists' });
     }
-    res.status(500).json({ error: 'Failed to create user' });
+    
+    res.status(500).json({ error: 'Failed to create user: ' + error.message });
   }
 });
 
