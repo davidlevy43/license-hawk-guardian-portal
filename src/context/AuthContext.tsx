@@ -52,38 +52,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Function to create default admin user if none exists
+  // Function to ensure admin user exists using public endpoint
   const ensureAdminUser = async () => {
     try {
-      console.log("🔧 [AUTH] Checking if admin user exists...");
+      console.log("🔧 [AUTH] Checking setup status...");
       
-      // Try to get users - this will fail if no users exist
-      const users = await fetchAPI<User[]>('/users');
+      // Use public setup endpoint that doesn't require authentication
+      const response = await fetch(`${API_URL}/api/setup/check`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
       
-      if (users.length === 0) {
-        console.log("🔧 [AUTH] No users found, creating default admin...");
-        
-        // Create default admin user
-        const defaultAdmin = {
-          username: 'admin',
-          email: 'admin@example.com', 
-          password: 'admin123',
-          name: 'Administrator',
-          role: UserRole.ADMIN
-        };
-        
-        await fetchAPI('/users', {
-          method: 'POST',
-          body: JSON.stringify(defaultAdmin)
-        });
-        
+      if (!response.ok) {
+        throw new Error(`Setup check failed: ${response.status}`);
+      }
+      
+      const setupData = await response.json();
+      console.log("🔧 [AUTH] Setup response:", setupData);
+      
+      if (setupData.adminCreated) {
         console.log("🔧 [AUTH] Default admin user created successfully");
         toast.info("Default admin user created. Use admin@example.com / admin123 to login.");
-      } else {
-        console.log("🔧 [AUTH] Users already exist, skipping admin creation");
+      } else if (setupData.userCount > 0) {
+        console.log("🔧 [AUTH] Users already exist, setup not needed");
       }
     } catch (error) {
-      console.error("🔧 [AUTH] Error ensuring admin user:", error);
+      console.error("🔧 [AUTH] Error in setup check:", error);
       // Don't show error to user as this is background operation
     }
   };
@@ -174,7 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // If login fails with invalid credentials, try to ensure admin user exists
         if (errorData.error === 'Invalid credentials') {
-          console.log("🔐 [CLIENT] Login failed, trying to ensure admin user exists...");
+          console.log("🔐 [CLIENT] Login failed, trying setup check...");
           await ensureAdminUser();
           throw new Error("Invalid credentials. If this is a new installation, try admin@example.com / admin123");
         }

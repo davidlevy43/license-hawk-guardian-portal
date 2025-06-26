@@ -68,6 +68,50 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', service: 'License Manager API', timestamp: new Date().toISOString() });
 });
 
+// Public setup endpoint - check if users exist and create default admin if needed
+app.get('/api/setup/check', async (req, res) => {
+  try {
+    console.log('🔧 [SETUP] Checking if any users exist...');
+    
+    const result = await pool.query('SELECT COUNT(*) as count FROM users');
+    const userCount = parseInt(result.rows[0].count);
+    
+    console.log('🔧 [SETUP] Found', userCount, 'users');
+    
+    if (userCount === 0) {
+      console.log('🔧 [SETUP] No users found, creating default admin...');
+      
+      // Create default admin user
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      const adminResult = await pool.query(
+        'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role',
+        ['admin', 'admin@example.com', hashedPassword, 'admin']
+      );
+      
+      console.log('🔧 [SETUP] Default admin user created successfully');
+      
+      res.json({ 
+        setupRequired: true, 
+        adminCreated: true,
+        userCount: 1,
+        defaultCredentials: {
+          email: 'admin@example.com',
+          password: 'admin123'
+        }
+      });
+    } else {
+      res.json({ 
+        setupRequired: false, 
+        adminCreated: false,
+        userCount: userCount
+      });
+    }
+  } catch (error) {
+    console.error('🔧 [SETUP] Error in setup check:', error);
+    res.status(500).json({ error: 'Setup check failed: ' + error.message });
+  }
+});
+
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
