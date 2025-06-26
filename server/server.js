@@ -155,26 +155,35 @@ const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
-  console.log('🔐 [SERVER] Auth middleware - token present:', !!token);
+  console.log('🔐 [AUTH] Middleware called');
+  console.log('🔐 [AUTH] Auth header:', authHeader ? 'Bearer ' + authHeader.split(' ')[1].substring(0, 20) + '...' : 'No header');
+  console.log('🔐 [AUTH] Token extracted:', token ? token.substring(0, 20) + '...' : 'No token');
+
   if (!token) {
-    console.log('🔐 [SERVER] No token provided');
+    console.log('🔐 [AUTH] No token provided');
     return res.status(401).json({ error: 'Access token required' });
   }
 
   // Verify JWT token
-  jwt.verify(token, JWT_SECRET, async (err, user) => {
+  jwt.verify(token, JWT_SECRET, async (err, decoded) => {
     if (err) {
-      console.error('🔐 [SERVER] Token verification failed:', err.message);
+      console.error('🔐 [AUTH] Token verification failed:', err.message);
+      console.error('🔐 [AUTH] Token that failed:', token.substring(0, 50) + '...');
+      console.error('🔐 [AUTH] JWT_SECRET being used:', JWT_SECRET.substring(0, 10) + '...');
       return res.status(403).json({ error: 'Invalid or expired token' });
     }
     
-    console.log('🔐 [SERVER] Token verified for user:', { id: user.id, email: user.email, role: user.role });
+    console.log('🔐 [AUTH] Token decoded successfully:', { 
+      id: decoded.id, 
+      email: decoded.email, 
+      role: decoded.role 
+    });
     
     // Check if user still exists in database
     try {
-      const userCheck = await pool.query('SELECT id, name, email, role FROM users WHERE id = $1', [user.id]);
+      const userCheck = await pool.query('SELECT id, name, email, role FROM users WHERE id = $1', [decoded.id]);
       if (userCheck.rows.length === 0) {
-        console.error('🔐 [SERVER] User from token no longer exists in database:', user.id);
+        console.error('🔐 [AUTH] User from token no longer exists in database:', decoded.id);
         return res.status(403).json({ error: 'User no longer exists' });
       }
       
@@ -185,10 +194,10 @@ const authenticateToken = (req, res, next) => {
         role: userCheck.rows[0].role,
         name: userCheck.rows[0].name
       };
-      console.log('🔐 [SERVER] User authenticated successfully:', req.user.email);
+      console.log('🔐 [AUTH] User authenticated successfully:', req.user.email);
       next();
     } catch (dbError) {
-      console.error('🔐 [SERVER] Database error during auth:', dbError);
+      console.error('🔐 [AUTH] Database error during auth:', dbError);
       return res.status(500).json({ error: 'Authentication database error' });
     }
   });
@@ -276,35 +285,36 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     console.log('🔐 [SERVER] Comparing password...');
-    console.log('🔐 [SERVER] Input password:', password);
-    console.log('🔐 [SERVER] Stored hash (first 20 chars):', user.password.substring(0, 20) + '...');
     
     const isValidPassword = await bcrypt.compare(password, user.password);
     console.log('🔐 [SERVER] Password comparison result:', isValidPassword);
     
     if (!isValidPassword) {
       console.log('🔐 [SERVER] Invalid password for user:', user.email);
-      
-      // For debugging - let's try manually hashing the password to see if there's a mismatch
-      const testHash = await bcrypt.hash(password, 10);
-      console.log('🔐 [SERVER] Test hash for password "' + password + '":', testHash.substring(0, 20) + '...');
-      
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Generate JWT token with user ID as string to match database
-    const token = jwt.sign(
-      { id: user.id.toString(), email: user.email, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    // Generate JWT token - ensure user ID is converted to string for consistency
+    const tokenPayload = { 
+      id: user.id.toString(), 
+      email: user.email, 
+      role: user.role 
+    };
+    
+    console.log('🔐 [SERVER] Creating JWT token with payload:', tokenPayload);
+    console.log('🔐 [SERVER] Using JWT_SECRET:', JWT_SECRET.substring(0, 10) + '...');
+    
+    const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '24h' });
+    
+    console.log('🔐 [SERVER] JWT token created successfully');
+    console.log('🔐 [SERVER] Token (first 50 chars):', token.substring(0, 50) + '...');
 
     console.log('🔐 [SERVER] Login successful for user:', user.email, 'with ID:', user.id);
 
     res.json({
       token,
       user: {
-        id: user.id.toString(), // Ensure ID is string
+        id: user.id.toString(), // Ensure ID is string for consistency
         email: user.email,
         name: user.name,
         role: user.role,
@@ -907,7 +917,7 @@ app.delete('/api/users/:id', authenticateToken, requireAdmin, async (req, res) =
     const { id } = req.params;
     
     // Prevent deleting self
-    if (id === req.user.id) {
+    if (id === req.user.id.toString()) {
       return res.status(403).json({ error: 'Cannot delete your own account' });
     }
     
