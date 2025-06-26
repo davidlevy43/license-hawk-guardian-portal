@@ -46,15 +46,18 @@ export const fetchAPI = async <T>(endpoint: string, options: RequestInit = {}): 
     'Content-Type': 'application/json',
   };
 
-  // Add auth token if available
+  // Add auth token if available - with extensive debugging
   const token = sessionStorage.getItem('authToken');
   console.log(`🌐 [API] Checking for auth token...`);
   console.log(`🌐 [API] Token exists:`, !!token);
+  console.log(`🌐 [API] Raw token value (first 30 chars):`, token ? token.substring(0, 30) + '...' : 'null');
+  console.log(`🌐 [API] sessionStorage keys:`, Object.keys(sessionStorage));
   
   if (token) {
-    defaultHeaders['Authorization'] = `Bearer ${token}`;
-    console.log('🌐 [API] Adding auth token to request:', token.substring(0, 10) + '...');
-    console.log('🌐 [API] Full Authorization header:', `Bearer ${token.substring(0, 20)}...`);
+    const authHeader = `Bearer ${token}`;
+    defaultHeaders['Authorization'] = authHeader;
+    console.log('🌐 [API] Adding auth token to request');
+    console.log('🌐 [API] Authorization header set to:', authHeader.substring(0, 30) + '...');
   } else {
     console.log('🌐 [API] No auth token found in sessionStorage');
     // Let's also check what's actually in sessionStorage
@@ -73,17 +76,18 @@ export const fetchAPI = async <T>(endpoint: string, options: RequestInit = {}): 
     },
   };
 
-  console.log('🌐 [API] Request config:', {
+  console.log('🌐 [API] Final request config:', {
     url,
     method: config.method || 'GET',
     hasAuth: !!defaultHeaders['Authorization'],
-    headers: config.headers
+    headers: JSON.stringify(config.headers, null, 2)
   });
 
   try {
     const response = await fetch(url, config);
     
     console.log(`🌐 [API] Response status: ${response.status} for ${url}`);
+    console.log(`🌐 [API] Response headers:`, Object.fromEntries(response.headers.entries()));
     
     if (!response.ok) {
       let errorMessage = `HTTP error! status: ${response.status}`;
@@ -95,6 +99,17 @@ export const fetchAPI = async <T>(endpoint: string, options: RequestInit = {}): 
         // If we can't parse the error response, use the default message
         console.error(`🌐 [API] Could not parse error response`);
       }
+      
+      // Log specific error cases
+      if (response.status === 401) {
+        console.error(`🌐 [API] 401 Unauthorized - Token issue detected`);
+        console.error(`🌐 [API] Current token:`, token ? token.substring(0, 20) + '...' : 'none');
+        console.error(`🌐 [API] Auth header sent:`, defaultHeaders['Authorization'] ? 'yes' : 'no');
+      } else if (response.status === 404) {
+        console.error(`🌐 [API] 404 Not Found - Resource doesn't exist`);
+        console.error(`🌐 [API] Endpoint:`, endpoint);
+      }
+      
       throw new Error(errorMessage);
     }
 
@@ -109,6 +124,12 @@ export const fetchAPI = async <T>(endpoint: string, options: RequestInit = {}): 
     return data;
   } catch (error) {
     console.error('🌐 [API] Request failed:', error);
+    console.error('🌐 [API] Error details:', {
+      message: error.message,
+      url,
+      hasToken: !!token,
+      tokenPreview: token ? token.substring(0, 20) + '...' : 'none'
+    });
     throw error;
   }
 };

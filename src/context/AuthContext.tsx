@@ -49,6 +49,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       console.log("🔒 [AUTH] Fetching user data for ID:", userId);
+      console.log("🔒 [AUTH] About to make request to:", `/users/${userId}`);
+      
+      // First let's verify the token is being sent correctly
+      console.log("🔒 [AUTH] Checking sessionStorage before API call:");
+      console.log("🔒 [AUTH] - authToken:", sessionStorage.getItem("authToken")?.substring(0, 20) + '...');
+      console.log("🔒 [AUTH] - userId:", sessionStorage.getItem("userId"));
       
       // Fetch the current user data from API
       const user = await fetchAPI<User>(`/users/${userId}`);
@@ -61,11 +67,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log("🔒 [AUTH] Session validation successful");
     } catch (error) {
       console.error("🔒 [AUTH] Failed to validate session:", error);
-      // Clear invalid session data
-      sessionStorage.removeItem("authToken");
-      sessionStorage.removeItem("userId");
-      setCurrentUser(null);
-      toast.error("Your session has expired. Please log in again.");
+      console.log("🔒 [AUTH] Error details:", {
+        message: error.message,
+        userId: userId,
+        tokenExists: !!token
+      });
+      
+      // Don't clear session data immediately - let's see what the error is
+      if (error.message.includes("404")) {
+        console.error("🔒 [AUTH] User ID not found in database - this is a data consistency issue");
+        toast.error("User account not found. Please log in again.");
+        // Clear invalid session data
+        sessionStorage.removeItem("authToken");
+        sessionStorage.removeItem("userId");
+        setCurrentUser(null);
+      } else if (error.message.includes("401") || error.message.includes("Access token required")) {
+        console.error("🔒 [AUTH] Token authentication failed");
+        toast.error("Session expired. Please log in again.");
+        // Clear invalid session data
+        sessionStorage.removeItem("authToken");
+        sessionStorage.removeItem("userId");
+        setCurrentUser(null);
+      } else {
+        console.error("🔒 [AUTH] Other validation error:", error);
+        toast.error("Session validation failed. Please log in again.");
+        // Clear session data for other errors too
+        sessionStorage.removeItem("authToken");
+        sessionStorage.removeItem("userId");
+        setCurrentUser(null);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -181,17 +211,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         console.log("🔐 [CLIENT] Token received (first 20 chars):", loginData.token ? loginData.token.substring(0, 20) + '...' : 'none');
         
+        // CRITICAL: Clear any existing session data first
+        console.log("🔐 [CLIENT] Clearing any existing session data...");
+        sessionStorage.removeItem("authToken");
+        sessionStorage.removeItem("userId");
+        
         // Store authentication info in sessionStorage
         console.log("🔐 [CLIENT] Storing auth data in sessionStorage...");
-        sessionStorage.setItem("authToken", loginData.token);
-        sessionStorage.setItem("userId", loginData.user.id);
+        console.log("🔐 [CLIENT] Storing token:", loginData.token.substring(0, 20) + '...');
+        console.log("🔐 [CLIENT] Storing userId:", loginData.user.id.toString());
         
-        // Verify storage worked
+        sessionStorage.setItem("authToken", loginData.token);
+        sessionStorage.setItem("userId", loginData.user.id.toString());
+        
+        // Verify storage worked immediately
         const storedToken = sessionStorage.getItem("authToken");
         const storedUserId = sessionStorage.getItem("userId");
         console.log("🔐 [CLIENT] Verification - Token stored:", !!storedToken);
         console.log("🔐 [CLIENT] Verification - UserId stored:", storedUserId);
         console.log("🔐 [CLIENT] Verification - Token matches:", storedToken === loginData.token);
+        console.log("🔐 [CLIENT] Verification - UserId matches:", storedUserId === loginData.user.id.toString());
+        
+        if (!storedToken || !storedUserId) {
+          console.error("🔐 [CLIENT] CRITICAL: Failed to store auth data in sessionStorage!");
+          throw new Error("Failed to store authentication data. Please try again.");
+        }
         
         // Set current user with proper date conversion
         const userData = {
