@@ -3,6 +3,7 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const path = require('path');
 require('dotenv').config();
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -35,169 +36,77 @@ app.use(limiter);
 
 // CORS configuration
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin) return callback(null, true);
-    
-    const allowedOrigins = [
-      'http://localhost',
-      'http://localhost:8080',
-      'http://localhost:3000',
-      'http://127.0.0.1',
-      'http://127.0.0.1:8080',
-      'http://127.0.0.1:3000',
-      process.env.FRONTEND_URL
-    ].filter(Boolean);
-    
-    // Allow any localhost or 127.0.0.1 variations
-    if (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('lovableproject.com')) {
-      return callback(null, true);
-    }
-    
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    
-    return callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'https://id-preview--e155f7e0-87f5-4108-9bae-d777af39bbd9.lovable.app'],
+  credentials: true
 }));
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json());
 
-// Database connection - Fix SSL configuration for local development
+// Database configuration
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://admin:admin123@localhost:5432/license_manager',
-  ssl: false // Explicitly disable SSL for local development
+  user: process.env.DB_USER || 'admin',
+  host: process.env.DB_HOST || 'localhost',
+  database: process.env.DB_NAME || 'license_manager',
+  password: process.env.DB_PASSWORD || 'admin123',
+  port: process.env.DB_PORT || 5432,
 });
 
-// Test database connection
-pool.connect((err, client, release) => {
-  if (err) {
-    console.error('❌ [DB] Error acquiring client', err.stack);
-  } else {
-    console.log('✅ [DB] Database connected successfully');
-    release();
-  }
-});
-
-// JWT Secret
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-here-change-in-production';
-
-// Database initialization
-async function initializeDatabase() {
-  try {
-    console.log('🔧 [DB] Starting database initialization...');
-    
-    // Create users table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        name VARCHAR(255) NOT NULL,
-        role VARCHAR(50) DEFAULT 'user',
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ [DB] Users table ensured');
-
-    // Create licenses table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS licenses (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        type VARCHAR(100),
-        department VARCHAR(100),
-        supplier VARCHAR(255),
-        start_date DATE,
-        renewal_date DATE,
-        monthly_cost DECIMAL(10,2),
-        payment_method VARCHAR(100),
-        service_owner VARCHAR(255),
-        service_owner_email VARCHAR(255),
-        status VARCHAR(50) NOT NULL,
-        notes TEXT,
-        credit_card_digits VARCHAR(4),
-        cost_type VARCHAR(50) DEFAULT 'monthly',
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ [DB] Licenses table ensured');
-
-    // Create default admin user with proper password hash
-    console.log('🔐 [SERVER] Checking for existing admin users...');
-    const adminExists = await pool.query('SELECT id, email, password FROM users WHERE email = $1', ['admin@example.com']);
-    console.log('🔐 [SERVER] Admin query result:', adminExists.rows.length > 0 ? 'Found' : 'Not found');
-    
-    if (adminExists.rows.length === 0) {
-      console.log('🔐 [SERVER] Creating default admin user...');
-      const hashedPassword = await bcrypt.hash('admin123', 10);
-      console.log('🔐 [SERVER] Password hashed successfully, length:', hashedPassword.length);
-      
-      const insertResult = await pool.query(
-        'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, name',
-        ['admin@example.com', hashedPassword, 'admin', 'admin']
-      );
-      console.log('🔐 [SERVER] Default admin user created:', insertResult.rows[0]);
-    } else {
-      const existingUser = adminExists.rows[0];
-      console.log('🔐 [SERVER] Admin user already exists:', { id: existingUser.id, email: existingUser.email });
-      console.log('🔐 [SERVER] Existing password hash length:', existingUser.password ? existingUser.password.length : 'NULL');
-      
-      // Check if the existing admin user has a proper password hash
-      if (!existingUser.password || existingUser.password.length < 10) {
-        console.log('🔐 [SERVER] Updating admin user password hash...');
-        const hashedPassword = await bcrypt.hash('admin123', 10);
-        await pool.query('UPDATE users SET password = $1 WHERE email = $2', [hashedPassword, 'admin@example.com']);
-        console.log('🔐 [SERVER] Admin user password updated');
-      }
-    }
-
-    // Create default David user with proper password hash
-    const davidExists = await pool.query('SELECT id, email, password FROM users WHERE email = $1', ['david@rotem.com']);
-    console.log('🔐 [SERVER] David query result:', davidExists.rows.length > 0 ? 'Found' : 'Not found');
-    
-    if (davidExists.rows.length === 0) {
-      console.log('🔐 [SERVER] Creating default David user...');
-      const hashedPassword = await bcrypt.hash('admin123', 10);
-      const insertResult = await pool.query(
-        'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, name',
-        ['david@rotem.com', hashedPassword, 'david', 'admin']
-      );
-      console.log('🔐 [SERVER] Default David user created:', insertResult.rows[0]);
-    } else {
-      const existingUser = davidExists.rows[0];
-      console.log('🔐 [SERVER] David user already exists:', { id: existingUser.id, email: existingUser.email });
-      console.log('🔐 [SERVER] Existing password hash length:', existingUser.password ? existingUser.password.length : 'NULL');
-      
-      // Check if the existing David user has a proper password hash
-      if (!existingUser.password || existingUser.password.length < 10) {
-        console.log('🔐 [SERVER] Updating David user password hash...');
-        const hashedPassword = await bcrypt.hash('admin123', 10);
-        await pool.query('UPDATE users SET password = $1 WHERE email = $2', [hashedPassword, 'david@rotem.com']);
-        console.log('🔐 [SERVER] David user password updated');
-      }
-    }
-
-    // Verify users were created correctly
-    const allUsers = await pool.query('SELECT id, email, name, role FROM users ORDER BY id');
-    console.log('✅ [DB] All users in database:', allUsers.rows);
-
-    console.log('✅ [DB] Database initialized successfully');
-  } catch (error) {
-    console.error('❌ [DB] Database initialization error:', error);
-    console.error('❌ [DB] Error stack:', error.stack);
-  }
+// Helper function to detect preview environment
+function isPreviewEnvironment() {
+  // Check for Lovable preview environment specifically
+  const hostname = process.env.HOSTNAME || '';
+  const host = process.env.HOST || '';
+  return hostname.includes('lovable.app') || host.includes('lovable.app') || 
+         process.env.NODE_ENV === 'preview';
 }
 
-// Initialize database on startup
-initializeDatabase();
+// JWT Secret - use environment variable in production
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Authentication middleware
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token required' });
+  }
+
+  // Check for preview/mock tokens ONLY in actual preview environments
+  if (isPreviewEnvironment() && (token === 'preview-mock-token' || token === 'secure-token')) {
+    // Mock user for preview environment
+    req.user = {
+      id: 'admin-id',
+      username: 'admin',
+      email: 'admin@example.com',
+      role: 'admin'
+    };
+    return next();
+  }
+
+  // Verify real JWT token
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      console.error('Token verification failed:', err.message);
+      return res.status(403).json({ error: 'Invalid or expired token' });
+    }
+    req.user = user;
+    next();
+  });
+};
+
+// Admin middleware
+const requireAdmin = (req, res, next) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+};
 
 // Email sending service - only if nodemailer is available
 const createTransporter = (config) => {
@@ -214,60 +123,6 @@ const createTransporter = (config) => {
     },
   });
 };
-
-// Authentication middleware
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
-  }
-
-  // Check for preview/mock tokens ONLY in actual preview environments
-  if ((token === 'preview-mock-token' || token === 'secure-token') && isPreviewEnvironment()) {
-    // Mock user for preview environment
-    req.user = {
-      id: 'admin-id',
-      email: 'admin@example.com',
-      role: 'admin'
-    };
-    return next();
-  }
-
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid or expired token' });
-    }
-    req.user = user;
-    next();
-  });
-};
-
-// Admin middleware
-const requireAdmin = (req, res, next) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin access required' });
-  }
-  next();
-};
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'healthy', 
-    timestamp: new Date().toISOString(),
-    service: 'License Manager API'
-  });
-});
-
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'healthy', 
-    timestamp: new Date().toISOString(),
-    service: 'License Manager API'
-  });
-});
 
 // Auth routes
 app.post('/api/auth/login', async (req, res) => {
@@ -892,29 +747,28 @@ app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
       const mockUsers = [
         {
           id: 'admin-id',
-          email: 'admin@example.com',
-          name: 'admin',
-          role: 'admin',
           username: 'admin',
-          created_at: new Date().toISOString()
+          email: 'admin@example.com',
+          role: 'admin',
+          createdAt: new Date('2024-01-01')
         },
         {
           id: 'david-id',
-          email: 'david@rotem.com',
-          name: 'david',
-          role: 'admin',
           username: 'david',
-          created_at: new Date().toISOString()
+          email: 'david@rotem.com',
+          role: 'admin',
+          createdAt: new Date('2024-01-15')
         }
       ];
       return res.json(mockUsers);
     }
 
-    const result = await pool.query('SELECT id, email, name, role, created_at FROM users ORDER BY created_at DESC');
+    // Real database query for production
+    const result = await pool.query('SELECT id, username, email, role, created_at as "createdAt" FROM users ORDER BY created_at DESC');
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching users:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
 
@@ -922,39 +776,37 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
     // Only use mock data in actual preview environments
     if (isPreviewEnvironment() && req.user.id === 'admin-id') {
-      const { email, name, role } = req.body;
+      const { username, email, role, password } = req.body;
       const mockUser = {
         id: 'mock-' + Date.now(),
-        email: email,
-        name: name || email.split('@')[0],
+        username,
+        email,
         role: role || 'user',
-        username: name || email.split('@')[0],
-        created_at: new Date().toISOString()
+        createdAt: new Date()
       };
       return res.status(201).json(mockUser);
     }
 
-    const { email, password, name, role } = req.body;
-
-    if (!email || !password || !name) {
-      return res.status(400).json({ error: 'Email, password, and name are required' });
-    }
-
-    const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-    if (existingUser.rows.length > 0) {
-      return res.status(409).json({ error: 'User already exists' });
+    // Real database operation for production
+    const { username, email, role, password } = req.body;
+    
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Username, email, and password are required' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      'INSERT INTO users (email, password, name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, name, role, created_at',
-      [email, hashedPassword, name, role || 'user']
+      'INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, username, email, role, created_at as "createdAt"',
+      [username, email, hashedPassword, role || 'user']
     );
-
+    
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating user:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    if (error.code === '23505') {
+      return res.status(409).json({ error: 'Username or email already exists' });
+    }
+    res.status(500).json({ error: 'Failed to create user' });
   }
 });
 
@@ -963,43 +815,46 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
     // Only use mock data in actual preview environments
     if (isPreviewEnvironment() && req.user.id === 'admin-id') {
       const { id } = req.params;
-      const { email, name, role } = req.body;
+      const { username, email, role } = req.body;
       const mockUser = {
-        id: id,
-        email: email,
-        name: name,
-        role: role,
-        username: name,
-        created_at: new Date().toISOString()
+        id,
+        username,
+        email,
+        role: role || 'user',
+        createdAt: new Date()
       };
       return res.json(mockUser);
     }
 
+    // Real database operation for production
     const { id } = req.params;
-    const { email, name, role, password } = req.body;
-
-    let query = 'UPDATE users SET email = $1, name = $2, role = $3, updated_at = CURRENT_TIMESTAMP';
-    let values = [email, name, role];
-
+    const { username, email, role, password } = req.body;
+    
+    let query = 'UPDATE users SET username = $1, email = $2, role = $3';
+    let params = [username, email, role || 'user'];
+    
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
       query += ', password = $4';
-      values.push(hashedPassword);
+      params.push(hashedPassword);
     }
-
-    query += ' WHERE id = $' + (values.length + 1) + ' RETURNING id, email, name, role, created_at';
-    values.push(id);
-
-    const result = await pool.query(query, values);
+    
+    query += ' WHERE id = $' + (params.length + 1) + ' RETURNING id, username, email, role, created_at as "createdAt"';
+    params.push(id);
+    
+    const result = await pool.query(query, params);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
-
+    
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Error updating user:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    if (error.code === '23505') {
+      return res.status(409).json({ error: 'Username or email already exists' });
+    }
+    res.status(500).json({ error: 'Failed to update user' });
   }
 });
 
@@ -1010,28 +865,29 @@ app.delete('/api/users/:id', authenticateToken, requireAdmin, async (req, res) =
       const { id } = req.params;
       // Don't allow deleting admin in preview
       if (id === 'admin-id' || id === 'david-id') {
-        return res.status(400).json({ error: 'Cannot delete admin accounts in preview mode' });
+        return res.status(403).json({ error: 'Cannot delete admin user' });
       }
-      return res.json({ message: 'User deleted successfully (preview mode)' });
+      return res.json({ success: true });
     }
 
+    // Real database operation for production
     const { id } = req.params;
     
-    // Prevent deletion of the admin user
-    if (req.user.id == id) {
-      return res.status(400).json({ error: 'Cannot delete your own account' });
+    // Prevent deleting self
+    if (id === req.user.id) {
+      return res.status(403).json({ error: 'Cannot delete your own account' });
     }
-
-    const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
     
-    if (result.rows.length === 0) {
+    const result = await pool.query('DELETE FROM users WHERE id = $1', [id]);
+    
+    if (result.rowCount === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
-
-    res.json({ message: 'User deleted successfully' });
+    
+    res.json({ success: true });
   } catch (error) {
     console.error('Error deleting user:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Failed to delete user' });
   }
 });
 
@@ -1079,10 +935,3 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
   // Keep server running despite errors
 });
-
-// Helper function to detect preview environment
-function isPreviewEnvironment() {
-  // Only consider it preview if hostname contains lovable domains
-  const hostname = process.env.HOSTNAME || 'localhost';
-  return hostname.includes('lovableproject.com') || hostname.includes('lovable.app');
-}
