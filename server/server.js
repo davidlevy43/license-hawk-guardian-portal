@@ -884,6 +884,9 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
     console.log('🔐 [SERVER] Password hashed successfully');
     
     console.log('🔐 [SERVER] Inserting user into database...');
+    console.log('🔐 [SERVER] Mapping username to name field:', username);
+    
+    // Map username to name field for database insertion
     const result = await pool.query(
       `INSERT INTO users (name, email, password, role) 
        VALUES ($1, $2, $3, $4) 
@@ -937,6 +940,7 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
     const { id } = req.params;
     const { username, email, role, password } = req.body;
     
+    // Map username to name field for database update
     let query = 'UPDATE users SET name = $1, email = $2, role = $3';
     let params = [username, email, role || 'user'];
     
