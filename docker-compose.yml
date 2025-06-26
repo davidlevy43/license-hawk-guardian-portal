@@ -27,6 +27,11 @@ services:
       NODE_ENV: production
       PORT: 3001
       DATABASE_URL: postgresql://admin:admin123@postgres:5432/license_manager
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: license_manager
+      DB_USER: admin
+      DB_PASSWORD: admin123
     ports:
       - "0.0.0.0:3001:3001"  # Listen on all interfaces
     depends_on:
