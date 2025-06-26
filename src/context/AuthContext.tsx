@@ -1,6 +1,7 @@
 
+
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { User, UserRole } from "@/types";
 import { toast } from "sonner";
 import { fetchAPI } from "@/services/api";
@@ -21,6 +22,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Function to check if token is valid and get current user
   const validateSession = async () => {
@@ -52,9 +54,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    // Check for existing session
-    validateSession();
-  }, []);
+    // Only validate session if we're not on the login page or index page
+    const publicRoutes = ['/login', '/', '/settings'];
+    const currentPath = location.pathname;
+    
+    if (!publicRoutes.includes(currentPath)) {
+      validateSession();
+    } else {
+      // On public routes, just check if we have stored auth data without calling the server
+      const token = sessionStorage.getItem("authToken");
+      const userId = sessionStorage.getItem("userId");
+      
+      if (token && userId && currentPath !== '/login') {
+        // If we have auth data and we're not on login, validate the session
+        validateSession();
+      } else {
+        setIsLoading(false);
+      }
+    }
+  }, [location.pathname]);
 
   const login = async (usernameOrEmail: string, password: string) => {
     setIsLoading(true);
@@ -158,3 +176,4 @@ export const useAuth = () => {
   }
   return context;
 };
+

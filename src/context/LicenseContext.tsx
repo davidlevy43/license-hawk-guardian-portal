@@ -1,9 +1,11 @@
 
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { License, LicenseStatus, LicenseType, PaymentMethod, CostType } from "@/types";
 import { format, addMonths, isPast, addDays, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { toast } from "sonner";
 import { LicenseAPI } from "@/services/api";
+import { useAuth } from "@/context/AuthContext";
 
 interface LicenseContextType {
   licenses: License[];
@@ -40,9 +42,16 @@ const getStatusFromDate = (renewalDate: Date): LicenseStatus => {
 
 export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [licenses, setLicenses] = useState<License[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const { isAuthenticated } = useAuth();
 
   const refreshLicenses = async () => {
+    // Don't try to load licenses if not authenticated
+    if (!isAuthenticated) {
+      console.log("Not authenticated, skipping license refresh");
+      return;
+    }
+
     try {
       setIsLoading(true);
       console.log("Refreshing licenses...");
@@ -78,11 +87,16 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   useEffect(() => {
-    // Load licenses from API on component mount
-    refreshLicenses().catch(err => {
-      console.error("Initial license load failed:", err);
-    });
-  }, []);
+    // Only load licenses if authenticated
+    if (isAuthenticated) {
+      refreshLicenses().catch(err => {
+        console.error("Initial license load failed:", err);
+      });
+    } else {
+      // Clear licenses when not authenticated
+      setLicenses([]);
+    }
+  }, [isAuthenticated]);
 
   const addLicense = async (licenseData: Omit<License, "id" | "createdAt" | "updatedAt">) => {
     try {
@@ -190,3 +204,4 @@ export const useLicenses = () => {
   }
   return context;
 };
+

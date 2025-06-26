@@ -1,4 +1,3 @@
-
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
@@ -60,9 +59,13 @@ const pool = new Pool({
 // JWT Secret - use environment variable in production
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
-// Health check endpoint
+// Health check endpoints - both /health and /api/health for compatibility
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.json({ status: 'OK', service: 'License Manager API', timestamp: new Date().toISOString() });
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'OK', service: 'License Manager API', timestamp: new Date().toISOString() });
 });
 
 // Authentication middleware
