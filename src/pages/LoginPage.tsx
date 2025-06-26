@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, Wifi, WifiOff, Settings } from "lucide-react";
+import { AlertCircle, Wifi, WifiOff, Settings, Info } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { API_URL } from "@/services/api/base";
 
@@ -36,8 +36,8 @@ const LoginPage: React.FC = () => {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "",
-      password: "",
+      email: "admin@example.com",
+      password: "admin123",
     },
   });
 
@@ -122,6 +122,11 @@ const LoginPage: React.FC = () => {
     }
   };
 
+  const fillDefaultCredentials = () => {
+    form.setValue('email', 'admin@example.com');
+    form.setValue('password', 'admin123');
+  };
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-muted/40 p-4">
       <div className="w-full max-w-md">
@@ -132,6 +137,26 @@ const LoginPage: React.FC = () => {
           <h1 className="text-2xl font-bold">License Manager</h1>
           <p className="text-muted-foreground">Sign in to your account</p>
         </div>
+
+        {/* Default Credentials Info */}
+        <Alert className="mb-4 border-blue-200 bg-blue-50">
+          <Info className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-700">
+            <div className="space-y-2">
+              <p className="font-semibold">Default Login Credentials:</p>
+              <p><strong>Email:</strong> admin@example.com</p>
+              <p><strong>Password:</strong> admin123</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={fillDefaultCredentials}
+                className="mt-2"
+              >
+                Use Default Credentials
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
 
         {/* Server Connection Status */}
         <div className="mb-4">
@@ -233,7 +258,7 @@ const LoginPage: React.FC = () => {
                         />
                       </FormControl>
                       <FormMessage />
-                    </FormItem>
+                    </FormMessage>
                   )}
                 />
                 <Button

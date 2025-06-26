@@ -1,5 +1,4 @@
 
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { User, UserRole } from "@/types";
@@ -53,6 +52,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Function to create default admin user if none exists
+  const ensureAdminUser = async () => {
+    try {
+      console.log("🔧 [AUTH] Checking if admin user exists...");
+      
+      // Try to get users - this will fail if no users exist
+      const users = await fetchAPI<User[]>('/users');
+      
+      if (users.length === 0) {
+        console.log("🔧 [AUTH] No users found, creating default admin...");
+        
+        // Create default admin user
+        const defaultAdmin = {
+          username: 'admin',
+          email: 'admin@example.com', 
+          password: 'admin123',
+          name: 'Administrator',
+          role: UserRole.ADMIN
+        };
+        
+        await fetchAPI('/users', {
+          method: 'POST',
+          body: JSON.stringify(defaultAdmin)
+        });
+        
+        console.log("🔧 [AUTH] Default admin user created successfully");
+        toast.info("Default admin user created. Use admin@example.com / admin123 to login.");
+      } else {
+        console.log("🔧 [AUTH] Users already exist, skipping admin creation");
+      }
+    } catch (error) {
+      console.error("🔧 [AUTH] Error ensuring admin user:", error);
+      // Don't show error to user as this is background operation
+    }
+  };
+
   useEffect(() => {
     // Only validate session if we're not on the login page or index page
     const publicRoutes = ['/login', '/', '/settings'];
@@ -70,6 +105,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         validateSession();
       } else {
         setIsLoading(false);
+        // Try to ensure admin user exists when on login page
+        if (currentPath === '/login') {
+          ensureAdminUser();
+        }
       }
     }
   }, [location.pathname]);
@@ -132,6 +171,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         const errorData = await loginResponse.json();
         console.error("🔐 [CLIENT] Login endpoint error:", errorData);
+        
+        // If login fails with invalid credentials, try to ensure admin user exists
+        if (errorData.error === 'Invalid credentials') {
+          console.log("🔐 [CLIENT] Login failed, trying to ensure admin user exists...");
+          await ensureAdminUser();
+          throw new Error("Invalid credentials. If this is a new installation, try admin@example.com / admin123");
+        }
+        
         throw new Error(errorData.error || "Login failed");
       }
       
@@ -176,4 +223,3 @@ export const useAuth = () => {
   }
   return context;
 };
-
