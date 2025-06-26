@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
@@ -36,8 +35,8 @@ const LoginPage: React.FC = () => {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "admin@example.com",
-      password: "admin123",
+      email: "",
+      password: "",
     },
   });
 
@@ -122,11 +121,6 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  const fillDefaultCredentials = () => {
-    form.setValue('email', 'admin@example.com');
-    form.setValue('password', 'admin123');
-  };
-
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-muted/40 p-4">
       <div className="w-full max-w-md">
@@ -137,26 +131,6 @@ const LoginPage: React.FC = () => {
           <h1 className="text-2xl font-bold">License Manager</h1>
           <p className="text-muted-foreground">Sign in to your account</p>
         </div>
-
-        {/* Default Credentials Info */}
-        <Alert className="mb-4 border-blue-200 bg-blue-50">
-          <Info className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-700">
-            <div className="space-y-2">
-              <p className="font-semibold">Default Login Credentials:</p>
-              <p><strong>Email:</strong> admin@example.com</p>
-              <p><strong>Password:</strong> admin123</p>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={fillDefaultCredentials}
-                className="mt-2"
-              >
-                Use Default Credentials
-              </Button>
-            </div>
-          </AlertDescription>
-        </Alert>
 
         {/* Server Connection Status */}
         <div className="mb-4">
