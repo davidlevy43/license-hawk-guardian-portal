@@ -51,15 +51,6 @@ const pool = new Pool({
   port: process.env.DB_PORT || 5432,
 });
 
-// Helper function to detect preview environment
-function isPreviewEnvironment() {
-  // Check for Lovable preview environment specifically
-  const hostname = process.env.HOSTNAME || '';
-  const host = process.env.HOST || '';
-  return hostname.includes('lovable.app') || host.includes('lovable.app') || 
-         process.env.NODE_ENV === 'preview';
-}
-
 // JWT Secret - use environment variable in production
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -77,19 +68,7 @@ const authenticateToken = (req, res, next) => {
     return res.status(401).json({ error: 'Access token required' });
   }
 
-  // Check for preview/mock tokens ONLY in actual preview environments
-  if (isPreviewEnvironment() && (token === 'preview-mock-token' || token === 'secure-token')) {
-    // Mock user for preview environment
-    req.user = {
-      id: 'admin-id',
-      username: 'admin',
-      email: 'admin@example.com',
-      role: 'admin'
-    };
-    return next();
-  }
-
-  // Verify real JWT token
+  // Verify JWT token
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
       console.error('Token verification failed:', err.message);
@@ -113,7 +92,7 @@ const createTransporter = (config) => {
   if (!nodemailer) {
     throw new Error('Nodemailer is not available. Please install it to use email features.');
   }
-  return nodemailer.createTransport({
+  return nodemailer.createTransporter({
     host: config.smtpServer,
     port: config.smtpPort,
     secure: config.smtpPort === 465, // true for 465, false for other ports
@@ -138,8 +117,6 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     console.log('🔐 [SERVER] Login attempt for:', loginIdentifier);
-    console.log('🔐 [SERVER] Password provided:', password ? 'YES' : 'NO');
-    console.log('🔐 [SERVER] Password value:', password);
 
     // Check if input is email (contains @) or username
     const isEmail = loginIdentifier.includes('@');
@@ -165,11 +142,6 @@ app.post('/api/auth/login', async (req, res) => {
 
     if (!user) {
       console.log('🔐 [SERVER] No user found with identifier:', loginIdentifier);
-      
-      // Debug: Show all users in database
-      const allUsers = await pool.query('SELECT id, email, name FROM users');
-      console.log('🔐 [SERVER] All users in database:', allUsers.rows);
-      
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -178,47 +150,19 @@ app.post('/api/auth/login', async (req, res) => {
       name: user.name, 
       email: user.email,
       role: user.role,
-      hasPassword: !!user.password,
-      passwordLength: user.password ? user.password.length : 0
+      hasPassword: !!user.password
     });
 
     // Check if password exists in database
     if (!user.password) {
       console.error('🔐 [SERVER] User has no password hash in database');
-      
-      // Fix missing password by creating a hash for admin123
-      console.log('🔐 [SERVER] Fixing missing password for user:', user.email);
-      const hashedPassword = await bcrypt.hash('admin123', 10);
-      await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, user.id]);
-      console.log('🔐 [SERVER] Password hash updated for user:', user.email);
-      
-      // Update the user object with the new password hash
-      user.password = hashedPassword;
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     console.log('🔐 [SERVER] Comparing password...');
-    console.log('🔐 [SERVER] Input password:', password);
-    console.log('🔐 [SERVER] Stored hash length:', user.password.length);
-    console.log('🔐 [SERVER] Stored hash preview:', user.password.substring(0, 10) + '...');
     
-    let isValidPassword = false;
-    try {
-      isValidPassword = await bcrypt.compare(password, user.password);
-      console.log('🔐 [SERVER] Password comparison result:', isValidPassword);
-    } catch (bcryptError) {
-      console.error('🔐 [SERVER] Bcrypt error:', bcryptError);
-      
-      // If bcrypt fails, it might be because the stored password is not properly hashed
-      // Let's rehash it
-      console.log('🔐 [SERVER] Rehashing password due to bcrypt error');
-      const hashedPassword = await bcrypt.hash('admin123', 10);
-      await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, user.id]);
-      console.log('🔐 [SERVER] Password rehashed for user:', user.email);
-      
-      // Try comparing again with the new hash
-      isValidPassword = await bcrypt.compare(password, hashedPassword);
-      console.log('🔐 [SERVER] Password comparison result after rehash:', isValidPassword);
-    }
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    console.log('🔐 [SERVER] Password comparison result:', isValidPassword);
     
     if (!isValidPassword) {
       console.log('🔐 [SERVER] Invalid password for user:', user.email);
@@ -247,11 +191,6 @@ app.post('/api/auth/login', async (req, res) => {
     });
   } catch (error) {
     console.error('🔐 [SERVER] Login error:', error);
-    console.error('🔐 [SERVER] Error details:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    });
     res.status(500).json({ error: 'Internal server error: ' + error.message });
   }
 });
@@ -456,7 +395,7 @@ app.post('/api/email/send-notification', authenticateToken, async (req, res) => 
 
     const { emailSettings, license, templateType, template } = req.body;
     
-    if (!emailSettings.smtpServer || !license.serviceOwnerEmail) {
+    if (!emailSettings.smtpServer || license.serviceOwnerEmail) {
       return res.status(400).json({ error: 'Email settings and service owner email are required' });
     }
 
@@ -742,29 +681,7 @@ app.delete('/api/licenses/:id', authenticateToken, async (req, res) => {
 // User management routes (admin only)
 app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    // Only use mock data in actual preview environments
-    if (isPreviewEnvironment() && req.user.id === 'admin-id') {
-      const mockUsers = [
-        {
-          id: 'admin-id',
-          username: 'admin',
-          email: 'admin@example.com',
-          role: 'admin',
-          createdAt: new Date('2024-01-01')
-        },
-        {
-          id: 'david-id',
-          username: 'david',
-          email: 'david@rotem.com',
-          role: 'admin',
-          createdAt: new Date('2024-01-15')
-        }
-      ];
-      return res.json(mockUsers);
-    }
-
-    // Real database query for production
-    const result = await pool.query('SELECT id, username, email, role, created_at as "createdAt" FROM users ORDER BY created_at DESC');
+    const result = await pool.query('SELECT id, name as username, email, role, created_at as "createdAt" FROM users ORDER BY created_at DESC');
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -774,20 +691,6 @@ app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
 
 app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    // Only use mock data in actual preview environments
-    if (isPreviewEnvironment() && req.user.id === 'admin-id') {
-      const { username, email, role, password } = req.body;
-      const mockUser = {
-        id: 'mock-' + Date.now(),
-        username,
-        email,
-        role: role || 'user',
-        createdAt: new Date()
-      };
-      return res.status(201).json(mockUser);
-    }
-
-    // Real database operation for production
     const { username, email, role, password } = req.body;
     
     if (!username || !email || !password) {
@@ -796,7 +699,7 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      'INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, username, email, role, created_at as "createdAt"',
+      'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, name as username, email, role, created_at as "createdAt"',
       [username, email, hashedPassword, role || 'user']
     );
     
@@ -812,25 +715,10 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
 
 app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    // Only use mock data in actual preview environments
-    if (isPreviewEnvironment() && req.user.id === 'admin-id') {
-      const { id } = req.params;
-      const { username, email, role } = req.body;
-      const mockUser = {
-        id,
-        username,
-        email,
-        role: role || 'user',
-        createdAt: new Date()
-      };
-      return res.json(mockUser);
-    }
-
-    // Real database operation for production
     const { id } = req.params;
     const { username, email, role, password } = req.body;
     
-    let query = 'UPDATE users SET username = $1, email = $2, role = $3';
+    let query = 'UPDATE users SET name = $1, email = $2, role = $3';
     let params = [username, email, role || 'user'];
     
     if (password) {
@@ -839,7 +727,7 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
       params.push(hashedPassword);
     }
     
-    query += ' WHERE id = $' + (params.length + 1) + ' RETURNING id, username, email, role, created_at as "createdAt"';
+    query += ' WHERE id = $' + (params.length + 1) + ' RETURNING id, name as username, email, role, created_at as "createdAt"';
     params.push(id);
     
     const result = await pool.query(query, params);
@@ -860,17 +748,6 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
 
 app.delete('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    // Only use mock data in actual preview environments
-    if (isPreviewEnvironment() && req.user.id === 'admin-id') {
-      const { id } = req.params;
-      // Don't allow deleting admin in preview
-      if (id === 'admin-id' || id === 'david-id') {
-        return res.status(403).json({ error: 'Cannot delete admin user' });
-      }
-      return res.json({ success: true });
-    }
-
-    // Real database operation for production
     const { id } = req.params;
     
     // Prevent deleting self
