@@ -155,18 +155,42 @@ const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
+  console.log('🔐 [SERVER] Auth middleware - token present:', !!token);
   if (!token) {
+    console.log('🔐 [SERVER] No token provided');
     return res.status(401).json({ error: 'Access token required' });
   }
 
   // Verify JWT token
-  jwt.verify(token, JWT_SECRET, (err, user) => {
+  jwt.verify(token, JWT_SECRET, async (err, user) => {
     if (err) {
-      console.error('Token verification failed:', err.message);
+      console.error('🔐 [SERVER] Token verification failed:', err.message);
       return res.status(403).json({ error: 'Invalid or expired token' });
     }
-    req.user = user;
-    next();
+    
+    console.log('🔐 [SERVER] Token verified for user:', { id: user.id, email: user.email, role: user.role });
+    
+    // Check if user still exists in database
+    try {
+      const userCheck = await pool.query('SELECT id, name, email, role FROM users WHERE id = $1', [user.id]);
+      if (userCheck.rows.length === 0) {
+        console.error('🔐 [SERVER] User from token no longer exists in database:', user.id);
+        return res.status(403).json({ error: 'User no longer exists' });
+      }
+      
+      // Update req.user with current database info
+      req.user = {
+        id: userCheck.rows[0].id,
+        email: userCheck.rows[0].email,
+        role: userCheck.rows[0].role,
+        name: userCheck.rows[0].name
+      };
+      console.log('🔐 [SERVER] User authenticated successfully:', req.user.email);
+      next();
+    } catch (dbError) {
+      console.error('🔐 [SERVER] Database error during auth:', dbError);
+      return res.status(500).json({ error: 'Authentication database error' });
+    }
   });
 };
 
@@ -268,19 +292,19 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Generate JWT token
+    // Generate JWT token with user ID as string to match database
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
+      { id: user.id.toString(), email: user.email, role: user.role },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
 
-    console.log('🔐 [SERVER] Login successful for user:', user.email);
+    console.log('🔐 [SERVER] Login successful for user:', user.email, 'with ID:', user.id);
 
     res.json({
       token,
       user: {
-        id: user.id,
+        id: user.id.toString(), // Ensure ID is string
         email: user.email,
         name: user.name,
         role: user.role,
@@ -780,11 +804,41 @@ app.delete('/api/licenses/:id', authenticateToken, async (req, res) => {
 // User management routes (admin only)
 app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
+    console.log('🔐 [SERVER] Fetching all users for admin:', req.user.email);
     const result = await pool.query('SELECT id, name as username, email, role, created_at as "createdAt" FROM users ORDER BY created_at DESC');
+    console.log('🔐 [SERVER] Found', result.rows.length, 'users');
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching users:', error);
+    console.error('🔐 [SERVER] Error fetching users:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+app.get('/api/users/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('🔐 [SERVER] Fetching user by ID:', id, 'for user:', req.user.email);
+    
+    const result = await pool.query('SELECT id, name as username, email, role, created_at as "createdAt" FROM users WHERE id = $1', [id]);
+    
+    if (result.rows.length === 0) {
+      console.log('🔐 [SERVER] User not found with ID:', id);
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = result.rows[0];
+    console.log('🔐 [SERVER] User found:', { id: user.id, username: user.username, email: user.email });
+    
+    res.json({
+      id: user.id.toString(),
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      createdAt: user.createdAt
+    });
+  } catch (error) {
+    console.error('🔐 [SERVER] Error fetching user:', error);
+    res.status(500).json({ error: 'Failed to fetch user' });
   }
 });
 
@@ -796,15 +850,18 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Username, email, and password are required' });
     }
 
+    console.log('🔐 [SERVER] Creating new user:', { username, email, role });
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await pool.query(
       'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, name as username, email, role, created_at as "createdAt"',
       [username, email, hashedPassword, role || 'user']
     );
     
+    console.log('🔐 [SERVER] User created successfully:', result.rows[0].username);
     res.status(201).json(result.rows[0]);
   } catch (error) {
-    console.error('Error creating user:', error);
+    console.error('🔐 [SERVER] Error creating user:', error);
     if (error.code === '23505') {
       return res.status(409).json({ error: 'Username or email already exists' });
     }
