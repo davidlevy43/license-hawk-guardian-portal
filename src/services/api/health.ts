@@ -16,7 +16,7 @@ export const HealthAPI = {
         console.log("Checking local iltela21 server health");
       }
       
-      // Ensure we don't have double "/api" in URL path
+      // Use /health endpoint (not /api/health)
       const healthEndpoint = `${API_URL}/health`;
       console.log(`Checking server health at ${healthEndpoint}`);
       

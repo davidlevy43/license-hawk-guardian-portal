@@ -52,11 +52,11 @@ const LoginPage: React.FC = () => {
     setDiagnosticInfo('');
     
     try {
-      // Test basic connectivity
+      // Test basic connectivity - use /health endpoint (not /api/health)
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       
-      const response = await fetch(`${API_URL}/api/health`, {
+      const response = await fetch(`${API_URL}/health`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal
