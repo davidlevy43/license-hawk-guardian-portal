@@ -26,26 +26,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Function to check if token is valid and get current user
   const validateSession = async () => {
     const token = sessionStorage.getItem("authToken");
+    const userId = sessionStorage.getItem("userId");
+    
+    console.log("🔒 [AUTH] Validating session...");
+    console.log("🔒 [AUTH] Token exists:", !!token);
+    console.log("🔒 [AUTH] User ID exists:", userId);
+    console.log("🔒 [AUTH] Token (first 20 chars):", token ? token.substring(0, 20) + '...' : 'none');
+    
     if (!token) {
+      console.log("🔒 [AUTH] No token found, session invalid");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!userId) {
+      console.log("🔒 [AUTH] No user ID found, clearing session");
+      sessionStorage.removeItem("authToken");
+      setCurrentUser(null);
       setIsLoading(false);
       return;
     }
 
     try {
-      // Get the user id from sessionStorage
-      const userId = sessionStorage.getItem("userId");
-      if (!userId) {
-        throw new Error("No user ID found");
-      }
+      console.log("🔒 [AUTH] Fetching user data for ID:", userId);
       
       // Fetch the current user data from API
       const user = await fetchAPI<User>(`/users/${userId}`);
+      console.log("🔒 [AUTH] User data fetched successfully:", { id: user.id, username: user.username, email: user.email });
+      
       setCurrentUser({
         ...user,
         createdAt: user.createdAt instanceof Date ? user.createdAt : new Date(user.createdAt)
       });
+      console.log("🔒 [AUTH] Session validation successful");
     } catch (error) {
-      console.error("Failed to validate session:", error);
+      console.error("🔒 [AUTH] Failed to validate session:", error);
       // Clear invalid session data
       sessionStorage.removeItem("authToken");
       sessionStorage.removeItem("userId");
@@ -93,15 +108,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const publicRoutes = ['/login', '/', '/settings'];
     const currentPath = location.pathname;
     
+    console.log("🔒 [AUTH] useEffect triggered, current path:", currentPath);
+    
     if (!publicRoutes.includes(currentPath)) {
+      console.log("🔒 [AUTH] Protected route, validating session...");
       validateSession();
     } else {
       // On public routes, just check if we have stored auth data without calling the server
       const token = sessionStorage.getItem("authToken");
       const userId = sessionStorage.getItem("userId");
       
+      console.log("🔒 [AUTH] Public route, checking stored auth data...");
+      console.log("🔒 [AUTH] Has token:", !!token);
+      console.log("🔒 [AUTH] Has userId:", !!userId);
+      
       if (token && userId && currentPath !== '/login') {
         // If we have auth data and we're not on login, validate the session
+        console.log("🔒 [AUTH] Has auth data on public route, validating...");
         validateSession();
       } else {
         setIsLoading(false);
@@ -156,10 +179,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           username: loginData.user.username, 
           email: loginData.user.email 
         });
+        console.log("🔐 [CLIENT] Token received (first 20 chars):", loginData.token ? loginData.token.substring(0, 20) + '...' : 'none');
         
         // Store authentication info in sessionStorage
+        console.log("🔐 [CLIENT] Storing auth data in sessionStorage...");
         sessionStorage.setItem("authToken", loginData.token);
         sessionStorage.setItem("userId", loginData.user.id);
+        
+        // Verify storage worked
+        const storedToken = sessionStorage.getItem("authToken");
+        const storedUserId = sessionStorage.getItem("userId");
+        console.log("🔐 [CLIENT] Verification - Token stored:", !!storedToken);
+        console.log("🔐 [CLIENT] Verification - UserId stored:", storedUserId);
+        console.log("🔐 [CLIENT] Verification - Token matches:", storedToken === loginData.token);
         
         // Set current user with proper date conversion
         const userData = {
@@ -168,6 +200,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           createdAt: new Date(loginData.user.createdAt)
         };
         
+        console.log("🔐 [CLIENT] Setting current user:", userData);
         setCurrentUser(userData);
         toast.success(`Welcome back, ${loginData.user.username || loginData.user.name}!`);
         navigate("/dashboard");
@@ -196,6 +229,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    console.log("🔐 [CLIENT] Logging out...");
     sessionStorage.removeItem("authToken");
     sessionStorage.removeItem("userId");
     setCurrentUser(null);
@@ -205,6 +239,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isAuthenticated = !!currentUser;
   const isAdmin = currentUser?.role === UserRole.ADMIN;
+
+  console.log("🔒 [AUTH] Provider state:", {
+    isAuthenticated,
+    isAdmin,
+    isLoading,
+    currentUser: currentUser ? { id: currentUser.id, username: currentUser.username } : null
+  });
 
   return (
     <AuthContext.Provider value={{ 

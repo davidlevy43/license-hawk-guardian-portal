@@ -40,7 +40,7 @@ if (storedUrl) {
 export const fetchAPI = async <T>(endpoint: string, options: RequestInit = {}): Promise<T> => {
   const url = `${API_URL}/api${endpoint}`;
   
-  console.log(`Making ${options.method || 'GET'} request to ${url}`);
+  console.log(`🌐 [API] Making ${options.method || 'GET'} request to ${url}`);
   
   const defaultHeaders = {
     'Content-Type': 'application/json',
@@ -48,11 +48,21 @@ export const fetchAPI = async <T>(endpoint: string, options: RequestInit = {}): 
 
   // Add auth token if available
   const token = sessionStorage.getItem('authToken');
+  console.log(`🌐 [API] Checking for auth token...`);
+  console.log(`🌐 [API] Token exists:`, !!token);
+  
   if (token) {
     defaultHeaders['Authorization'] = `Bearer ${token}`;
-    console.log('Adding auth token to request:', token.substring(0, 10) + '...');
+    console.log('🌐 [API] Adding auth token to request:', token.substring(0, 10) + '...');
+    console.log('🌐 [API] Full Authorization header:', `Bearer ${token.substring(0, 20)}...`);
   } else {
-    console.log('No auth token found in sessionStorage');
+    console.log('🌐 [API] No auth token found in sessionStorage');
+    // Let's also check what's actually in sessionStorage
+    console.log('🌐 [API] SessionStorage contents:', {
+      authToken: sessionStorage.getItem('authToken'),
+      userId: sessionStorage.getItem('userId'),
+      keys: Object.keys(sessionStorage)
+    });
   }
 
   const config: RequestInit = {
@@ -63,29 +73,42 @@ export const fetchAPI = async <T>(endpoint: string, options: RequestInit = {}): 
     },
   };
 
+  console.log('🌐 [API] Request config:', {
+    url,
+    method: config.method || 'GET',
+    hasAuth: !!defaultHeaders['Authorization'],
+    headers: config.headers
+  });
+
   try {
     const response = await fetch(url, config);
+    
+    console.log(`🌐 [API] Response status: ${response.status} for ${url}`);
     
     if (!response.ok) {
       let errorMessage = `HTTP error! status: ${response.status}`;
       try {
         const errorData = await response.json();
         errorMessage = errorData.error || errorData.message || errorMessage;
+        console.error(`🌐 [API] Error response data:`, errorData);
       } catch {
         // If we can't parse the error response, use the default message
+        console.error(`🌐 [API] Could not parse error response`);
       }
       throw new Error(errorMessage);
     }
 
     // Handle 204 No Content responses
     if (response.status === 204) {
+      console.log(`🌐 [API] No content response (204)`);
       return {} as T;
     }
 
     const data = await response.json();
+    console.log(`🌐 [API] Success response for ${url}:`, data);
     return data;
   } catch (error) {
-    console.error('API request failed:', error);
+    console.error('🌐 [API] Request failed:', error);
     throw error;
   }
 };
