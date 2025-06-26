@@ -72,9 +72,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (setupData.adminCreated) {
         console.log("🔧 [AUTH] Default admin user created successfully");
-        toast.info("Default admin user created. Use admin@example.com / admin123 to login.");
+        toast.info("Default admin user ready. Use admin@example.com / admin123 to login.");
+      } else if (setupData.adminExists) {
+        console.log("🔧 [AUTH] Admin user already exists");
       } else if (setupData.userCount > 0) {
-        console.log("🔧 [AUTH] Users already exist, setup not needed");
+        console.log("🔧 [AUTH] Users exist, setup not needed");
       }
     } catch (error) {
       console.error("🔧 [AUTH] Error in setup check:", error);

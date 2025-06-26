@@ -100,11 +100,38 @@ app.get('/api/setup/check', async (req, res) => {
         }
       });
     } else {
-      res.json({ 
-        setupRequired: false, 
-        adminCreated: false,
-        userCount: userCount
-      });
+      // Check if admin@example.com exists
+      console.log('🔧 [SETUP] Checking if admin@example.com exists...');
+      const adminCheck = await pool.query('SELECT id, name, email, role FROM users WHERE email = $1', ['admin@example.com']);
+      
+      if (adminCheck.rows.length === 0) {
+        console.log('🔧 [SETUP] admin@example.com not found, creating it...');
+        
+        // Create the admin@example.com user
+        const hashedPassword = await bcrypt.hash('admin123', 10);
+        const adminResult = await pool.query(
+          'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role',
+          ['admin', 'admin@example.com', hashedPassword, 'admin']
+        );
+        
+        console.log('🔧 [SETUP] admin@example.com user created successfully');
+        
+        res.json({ 
+          setupRequired: false, 
+          adminCreated: true,
+          userCount: userCount + 1,
+          message: 'Default admin user created'
+        });
+      } else {
+        console.log('🔧 [SETUP] admin@example.com already exists:', adminCheck.rows[0]);
+        res.json({ 
+          setupRequired: false, 
+          adminCreated: false,
+          userCount: userCount,
+          adminExists: true,
+          adminUser: adminCheck.rows[0]
+        });
+      }
     }
   } catch (error) {
     console.error('🔧 [SETUP] Error in setup check:', error);
@@ -343,7 +370,7 @@ app.post('/api/email/send-test', authenticateToken, requireAdmin, async (req, re
 
     const { emailSettings, testEmailAddress } = req.body;
     
-    if (!emailSettings.smtpServer || !testEmailAddress) {
+    if (!emailSettings.smtpServer || testEmailAddress) {
       return res.status(400).json({ error: 'Email settings and test email address are required' });
     }
 
