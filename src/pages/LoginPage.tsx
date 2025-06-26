@@ -258,7 +258,7 @@ const LoginPage: React.FC = () => {
                         />
                       </FormControl>
                       <FormMessage />
-                    </FormMessage>
+                    </FormItem>
                   )}
                 />
                 <Button
