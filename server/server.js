@@ -1,3 +1,4 @@
+
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
@@ -34,9 +35,14 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// CORS configuration
+// CORS configuration - allow both localhost with and without port
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000', 'https://id-preview--e155f7e0-87f5-4108-9bae-d777af39bbd9.lovable.app'],
+  origin: [
+    'http://localhost:5173', 
+    'http://localhost:3000', 
+    'http://localhost',
+    'https://id-preview--e155f7e0-87f5-4108-9bae-d777af39bbd9.lovable.app'
+  ],
   credentials: true
 }));
 
