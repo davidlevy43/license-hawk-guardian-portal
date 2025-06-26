@@ -124,12 +124,23 @@ app.get('/api/setup/check', async (req, res) => {
         });
       } else {
         console.log('🔧 [SETUP] admin@example.com already exists:', adminCheck.rows[0]);
+        
+        // Reset the admin password to ensure it's correct
+        console.log('🔧 [SETUP] Resetting admin@example.com password to ensure it works...');
+        const hashedPassword = await bcrypt.hash('admin123', 10);
+        await pool.query(
+          'UPDATE users SET password = $1 WHERE email = $2',
+          [hashedPassword, 'admin@example.com']
+        );
+        console.log('🔧 [SETUP] admin@example.com password reset successfully');
+        
         res.json({ 
           setupRequired: false, 
           adminCreated: false,
           userCount: userCount,
           adminExists: true,
-          adminUser: adminCheck.rows[0]
+          adminUser: adminCheck.rows[0],
+          passwordReset: true
         });
       }
     }
@@ -230,7 +241,8 @@ app.post('/api/auth/login', async (req, res) => {
       name: user.name, 
       email: user.email,
       role: user.role,
-      hasPassword: !!user.password
+      hasPassword: !!user.password,
+      passwordLength: user.password ? user.password.length : 0
     });
 
     // Check if password exists in database
@@ -240,12 +252,19 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     console.log('🔐 [SERVER] Comparing password...');
+    console.log('🔐 [SERVER] Input password:', password);
+    console.log('🔐 [SERVER] Stored hash (first 20 chars):', user.password.substring(0, 20) + '...');
     
     const isValidPassword = await bcrypt.compare(password, user.password);
     console.log('🔐 [SERVER] Password comparison result:', isValidPassword);
     
     if (!isValidPassword) {
       console.log('🔐 [SERVER] Invalid password for user:', user.email);
+      
+      // For debugging - let's try manually hashing the password to see if there's a mismatch
+      const testHash = await bcrypt.hash(password, 10);
+      console.log('🔐 [SERVER] Test hash for password "' + password + '":', testHash.substring(0, 20) + '...');
+      
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
