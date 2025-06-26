@@ -40,12 +40,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Fetch the current user data from API
       const user = await fetchAPI<User>(`/users/${userId}`);
-      setCurrentUser(user);
+      setCurrentUser({
+        ...user,
+        createdAt: user.createdAt instanceof Date ? user.createdAt : new Date(user.createdAt)
+      });
     } catch (error) {
       console.error("Failed to validate session:", error);
       // Clear invalid session data
       sessionStorage.removeItem("authToken");
       sessionStorage.removeItem("userId");
+      setCurrentUser(null);
       toast.error("Your session has expired. Please log in again.");
     } finally {
       setIsLoading(false);
@@ -154,14 +158,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         
         // Store authentication info in sessionStorage
-        sessionStorage.setItem("authToken", loginData.token || "secure-token");
+        sessionStorage.setItem("authToken", loginData.token);
         sessionStorage.setItem("userId", loginData.user.id);
         
-        setCurrentUser({
+        // Set current user with proper date conversion
+        const userData = {
           ...loginData.user,
+          username: loginData.user.username || loginData.user.name,
           createdAt: new Date(loginData.user.createdAt)
-        });
-        toast.success(`Welcome back, ${loginData.user.username}!`);
+        };
+        
+        setCurrentUser(userData);
+        toast.success(`Welcome back, ${loginData.user.username || loginData.user.name}!`);
         navigate("/dashboard");
         return;
       } else {

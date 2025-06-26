@@ -50,6 +50,9 @@ export const fetchAPI = async <T>(endpoint: string, options: RequestInit = {}): 
   const token = sessionStorage.getItem('authToken');
   if (token) {
     defaultHeaders['Authorization'] = `Bearer ${token}`;
+    console.log('Adding auth token to request:', token.substring(0, 10) + '...');
+  } else {
+    console.log('No auth token found in sessionStorage');
   }
 
   const config: RequestInit = {
