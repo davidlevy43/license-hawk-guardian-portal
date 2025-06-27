@@ -1,6 +1,6 @@
 
 // API Configuration
-export let API_URL = 'http://localhost:3001';
+export let API_URL = 'http://iltelpc71:3001';
 
 // Get the current host IP for network connections
 const getCurrentHostIP = () => {
@@ -8,8 +8,8 @@ const getCurrentHostIP = () => {
   
   // If we're on localhost, try to detect network IP
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    // For local development, default to localhost
-    return 'localhost';
+    // Default to iltelpc71 for network access
+    return 'iltelpc71';
   }
   
   // Use the current hostname (could be an IP address)
@@ -30,7 +30,7 @@ if (storedUrl) {
   API_URL = storedUrl;
   console.log('Using stored API URL:', API_URL);
 } else {
-  // Auto-detect based on current hostname
+  // Auto-detect based on current hostname - default to iltelpc71
   const currentHost = getCurrentHostIP();
   API_URL = `http://${currentHost}:3001`;
   console.log('Auto-detected API URL:', API_URL);

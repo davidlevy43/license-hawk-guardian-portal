@@ -1,5 +1,3 @@
-
-
 import { License } from '@/types';
 import { fetchAPI } from './base';
 
@@ -112,10 +110,10 @@ export const LicenseAPI = {
     try {
       console.log('🔍 ✅ Updating license with data:', license);
       const preparedData = prepareLicenseData(license);
-      console.log('🔍 ✅ About to PATCH to API:', JSON.stringify(preparedData, null, 2));
+      console.log('🔍 ✅ About to PUT to API:', JSON.stringify(preparedData, null, 2));
       
       const updatedLicense = await fetchAPI<any>(`/licenses/${id}`, {
-        method: 'PATCH',
+        method: 'PUT',
         body: JSON.stringify(preparedData),
       });
       
@@ -139,4 +137,3 @@ export const LicenseAPI = {
     }
   },
 };
-
