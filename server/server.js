@@ -815,9 +815,19 @@ app.delete('/api/licenses/:id', authenticateToken, async (req, res) => {
 app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
     console.log('🔐 [SERVER] Fetching all users for admin:', req.user.email);
-    const result = await pool.query('SELECT id, name as username, email, role, created_at as "createdAt" FROM users ORDER BY created_at DESC');
+    const result = await pool.query('SELECT id, username, name, email, role, created_at as "createdAt" FROM users ORDER BY created_at DESC');
     console.log('🔐 [SERVER] Found', result.rows.length, 'users');
-    res.json(result.rows);
+    
+    // Map the results to match frontend expectations
+    const users = result.rows.map(user => ({
+      id: user.id.toString(),
+      username: user.username || user.name, // Use username if available, fallback to name
+      email: user.email,
+      role: user.role,
+      createdAt: user.createdAt
+    }));
+    
+    res.json(users);
   } catch (error) {
     console.error('🔐 [SERVER] Error fetching users:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
@@ -829,7 +839,7 @@ app.get('/api/users/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     console.log('🔐 [SERVER] Fetching user by ID:', id, 'for user:', req.user.email);
     
-    const result = await pool.query('SELECT id, name as username, email, role, created_at as "createdAt" FROM users WHERE id = $1', [id]);
+    const result = await pool.query('SELECT id, username, name, email, role, created_at as "createdAt" FROM users WHERE id = $1', [id]);
     
     if (result.rows.length === 0) {
       console.log('🔐 [SERVER] User not found with ID:', id);
@@ -837,11 +847,11 @@ app.get('/api/users/:id', authenticateToken, async (req, res) => {
     }
 
     const user = result.rows[0];
-    console.log('🔐 [SERVER] User found:', { id: user.id, username: user.username, email: user.email });
+    console.log('🔐 [SERVER] User found:', { id: user.id, username: user.username, name: user.name, email: user.email });
     
     res.json({
       id: user.id.toString(),
-      username: user.username,
+      username: user.username || user.name, // Use username if available, fallback to name
       email: user.email,
       role: user.role,
       createdAt: user.createdAt
@@ -867,13 +877,13 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
     
     // Check if user already exists by email or username
     const existingUserCheck = await pool.query(
-      'SELECT id, email, name FROM users WHERE email = $1 OR name = $2', 
-      [email, username]
+      'SELECT id, email, username, name FROM users WHERE email = $1 OR username = $2 OR name = $3', 
+      [email, username, username]
     );
     
     if (existingUserCheck.rows.length > 0) {
       const existing = existingUserCheck.rows[0];
-      console.log('🔐 [SERVER] User already exists:', { id: existing.id, email: existing.email, name: existing.name });
+      console.log('🔐 [SERVER] User already exists:', { id: existing.id, email: existing.email, username: existing.username, name: existing.name });
       return res.status(409).json({ error: 'Username or email already exists' });
     }
 
@@ -884,14 +894,14 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
     console.log('🔐 [SERVER] Password hashed successfully');
     
     console.log('🔐 [SERVER] Inserting user into database...');
-    console.log('🔐 [SERVER] Mapping username to name field:', username);
+    console.log('🔐 [SERVER] Populating both username and name fields with:', username);
     
-    // Map username to name field for database insertion
+    // Populate both username and name fields with the same value
     const result = await pool.query(
-      `INSERT INTO users (name, email, password, role) 
-       VALUES ($1, $2, $3, $4) 
-       RETURNING id, name as username, email, role, created_at as "createdAt"`,
-      [username, email, hashedPassword, role || 'user']
+      `INSERT INTO users (username, name, email, password, role) 
+       VALUES ($1, $2, $3, $4, $5) 
+       RETURNING id, username, name, email, role, created_at as "createdAt"`,
+      [username, username, email, hashedPassword, role || 'user']
     );
     
     if (result.rows.length === 0) {
@@ -902,7 +912,8 @@ app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
     const newUser = result.rows[0];
     console.log('🔐 [SERVER] User created successfully:', { 
       id: newUser.id, 
-      username: newUser.username, 
+      username: newUser.username,
+      name: newUser.name,
       email: newUser.email, 
       role: newUser.role 
     });
@@ -940,17 +951,17 @@ app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
     const { id } = req.params;
     const { username, email, role, password } = req.body;
     
-    // Map username to name field for database update
-    let query = 'UPDATE users SET name = $1, email = $2, role = $3';
-    let params = [username, email, role || 'user'];
+    // Update both username and name fields with the same value
+    let query = 'UPDATE users SET username = $1, name = $2, email = $3, role = $4';
+    let params = [username, username, email, role || 'user'];
     
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
-      query += ', password = $4';
+      query += ', password = $5';
       params.push(hashedPassword);
     }
     
-    query += ' WHERE id = $' + (params.length + 1) + ' RETURNING id, name as username, email, role, created_at as "createdAt"';
+    query += ' WHERE id = $' + (params.length + 1) + ' RETURNING id, username, name, email, role, created_at as "createdAt"';
     params.push(id);
     
     const result = await pool.query(query, params);
