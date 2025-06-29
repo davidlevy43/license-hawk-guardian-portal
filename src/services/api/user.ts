@@ -1,4 +1,5 @@
 
+
 import { User } from '@/types';
 import { fetchAPI } from './base';
 
@@ -76,3 +77,4 @@ export const UserAPI = {
     }
   },
 };
+
