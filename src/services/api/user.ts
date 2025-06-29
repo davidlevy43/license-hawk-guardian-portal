@@ -51,7 +51,7 @@ export const UserAPI = {
   update: async (id: string, user: Partial<User>) => {
     try {
       const updatedUser = await fetchAPI<User>(`/users/${id}`, {
-        method: 'PATCH',
+        method: 'PUT',
         body: JSON.stringify(user),
       });
       return {
