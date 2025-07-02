@@ -62,7 +62,7 @@ const EmailSettingsForm: React.FC = () => {
           'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
         },
         body: JSON.stringify({
-          emailSettings: formData,
+          ...formData,
           testEmailAddress: formData.senderEmail
         })
       });
