@@ -1,5 +1,5 @@
 
-// API Configuration
+// API Configuration - always point to iltelpc71:3001 for API
 export let API_URL = 'http://iltelpc71:3001';
 
 // Get the current host IP for network connections
@@ -29,9 +29,8 @@ if (storedUrl) {
   API_URL = storedUrl;
   console.log('Using stored API URL:', API_URL);
 } else {
-  // Auto-detect based on current hostname - default to iltelpc71
-  const currentHost = getCurrentHostIP();
-  API_URL = `http://${currentHost}:3001`;
+  // Always default to iltelpc71:3001 for API server
+  API_URL = 'http://iltelpc71:3001';
   console.log('Auto-detected API URL:', API_URL);
 }
 
