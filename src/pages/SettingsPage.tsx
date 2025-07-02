@@ -27,9 +27,9 @@ const getLocalIpAddress = () => {
 const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
   const [apiUrl, setApiUrl] = useState(() => {
-    // Set default URL to iltela21 if that's the current hostname
-    if (window.location.hostname === 'iltela21') {
-      return `http://iltela21:3001`;
+    // Set default URL to iltelpc71 if that's the current hostname
+    if (window.location.hostname === 'iltelpc71') {
+      return `http://iltelpc71:3001`;
     }
     return sessionStorage.getItem('api_server_url') || `http://${getLocalIpAddress()}:3001`;
   });
@@ -240,7 +240,7 @@ const SettingsPage: React.FC = () => {
                 <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
                   <h3 className="font-medium text-blue-800">Quick Start Guide</h3>
                   <ol className="list-decimal ml-5 mt-2 text-sm text-blue-700 space-y-2">
-                    <li>Make sure you've run <code className="bg-blue-100 px-1 py-0.5 rounded">START-ONE-CLICK.bat</code> on the iltela21 server</li>
+                    <li>Make sure you've run <code className="bg-blue-100 px-1 py-0.5 rounded">START-ONE-CLICK.bat</code> on the iltelpc71 server</li>
                     <li>The server should be running on port 3001</li>
                     <li>If you're connecting from another computer, use the server's IP address instead of "localhost"</li>
                   </ol>
@@ -252,7 +252,7 @@ const SettingsPage: React.FC = () => {
                     id="apiUrl"
                     value={apiUrl}
                     onChange={(e) => setApiUrl(e.target.value)}
-                    placeholder="http://iltela21:3001"
+                    placeholder="http://iltelpc71:3001"
                   />
                   <p className="text-sm text-muted-foreground">
                     The URL should include the protocol (http://), server hostname or IP, and port 3001.
@@ -269,9 +269,9 @@ const SettingsPage: React.FC = () => {
                         variant="outline" 
                         size="sm"
                         className="justify-start text-left"
-                        onClick={() => setApiUrl(`http://iltela21:3001`)}
+                        onClick={() => setApiUrl(`http://iltelpc71:3001`)}
                       >
-                        iltela21: http://iltela21:3001
+                        iltelpc71: http://iltelpc71:3001
                       </Button>
                       <Button 
                         variant="outline" 
