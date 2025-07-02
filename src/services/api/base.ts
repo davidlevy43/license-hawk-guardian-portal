@@ -6,10 +6,9 @@ export let API_URL = 'http://iltelpc71:3001';
 const getCurrentHostIP = () => {
   const hostname = window.location.hostname;
   
-  // If we're on localhost, try to detect network IP
+  // If we're on localhost, use localhost for local development
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    // Default to iltelpc71 for network access
-    return 'iltelpc71';
+    return 'localhost';
   }
   
   // Use the current hostname (could be an IP address)
