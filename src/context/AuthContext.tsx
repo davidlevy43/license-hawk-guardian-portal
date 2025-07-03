@@ -237,14 +237,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           throw new Error("Failed to store authentication data. Please try again.");
         }
         
-        // Set current user with proper date conversion
+        // Set current user with proper date conversion - use login data directly
         const userData = {
           ...loginData.user,
           username: loginData.user.username || loginData.user.name,
-          createdAt: new Date(loginData.user.createdAt)
+          createdAt: new Date(loginData.user.createdAt || new Date())
         };
         
-        console.log("🔐 [CLIENT] Setting current user:", userData);
+        console.log("🔐 [CLIENT] Setting current user from login data:", userData);
         setCurrentUser(userData);
         toast.success(`Welcome back, ${loginData.user.username || loginData.user.name}!`);
         navigate("/dashboard");
