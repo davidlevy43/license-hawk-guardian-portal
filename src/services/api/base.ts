@@ -1,21 +1,28 @@
 
-// API Configuration - always point to iltelpc71:3001 for API
-export let API_URL = 'http://iltelpc71:3001';
+// API Configuration - detect if we're using nginx proxy or direct connection
+export let API_URL = '';
 
-// Get the current host IP for network connections
-const getCurrentHostIP = () => {
+// Get the current host and determine API URL
+const determineApiUrl = () => {
   const hostname = window.location.hostname;
+  const port = window.location.port;
+  const protocol = window.location.protocol;
   
-  // If we're on localhost, use localhost for local development
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'localhost';
+  // If accessing through nginx (no port or port 80), use nginx proxy
+  if (!port || port === '80') {
+    return `${protocol}//${hostname}`;
   }
   
-  // Use the current hostname (could be an IP address)
-  return hostname;
+  // For direct development access, use port 3001
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://localhost:3001';
+  }
+  
+  // For direct server access, use iltelpc71:3001
+  return 'http://iltelpc71:3001';
 };
 
-// Update API URL for network setup
+// Update API URL for manual configuration
 export const updateApiUrl = (newUrl: string) => {
   API_URL = newUrl;
   // Store in session storage for persistence
@@ -29,8 +36,7 @@ if (storedUrl) {
   API_URL = storedUrl;
   console.log('Using stored API URL:', API_URL);
 } else {
-  // Always default to iltelpc71:3001 for API server
-  API_URL = 'http://iltelpc71:3001';
+  API_URL = determineApiUrl();
   console.log('Auto-detected API URL:', API_URL);
 }
 
