@@ -140,9 +140,9 @@ export class NotificationScheduler {
   
   private isEmailConfigured(emailSettings: any): boolean {
     return !!(
-      emailSettings.smtpServer &&
-      emailSettings.username &&
-      emailSettings.password &&
+      emailSettings.serviceId &&
+      emailSettings.templateId &&
+      emailSettings.publicKey &&
       emailSettings.senderEmail
     );
   }

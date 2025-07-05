@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Mail } from "lucide-react";
 import EmailSettingsForm from "@/components/notifications/EmailSettingsForm";
 import NotificationTemplateForm from "@/components/notifications/NotificationTemplateForm";
+import EmailJSSetupGuide from "@/components/notifications/EmailJSSetupGuide";
 
 const NotificationsPage: React.FC = () => {
   const { isAdmin } = useAuth();
@@ -37,17 +38,18 @@ const NotificationsPage: React.FC = () => {
 
       <Tabs defaultValue="smtp">
         <TabsList className="mb-6">
-          <TabsTrigger value="smtp">SMTP Settings</TabsTrigger>
+          <TabsTrigger value="smtp">EmailJS Settings</TabsTrigger>
           <TabsTrigger value="templates">Email Templates</TabsTrigger>
+          <TabsTrigger value="setup">Setup Guide</TabsTrigger>
         </TabsList>
         
         <TabsContent value="smtp">
           <Card>
             <CardHeader>
-              <CardTitle>SMTP Configuration</CardTitle>
+              <CardTitle>EmailJS Configuration</CardTitle>
               <CardDescription>
-                Configure your email server settings to send automated notifications.
-                The system automatically checks for expiring licenses daily and sends notifications.
+                Configure your EmailJS service to send automated notifications directly from the browser.
+                Create an account at emailjs.com and set up a service and template to get started.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -66,6 +68,20 @@ const NotificationsPage: React.FC = () => {
             </CardHeader>
             <CardContent>
               <NotificationTemplateForm />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="setup">
+          <Card>
+            <CardHeader>
+              <CardTitle>EmailJS Setup Guide</CardTitle>
+              <CardDescription>
+                Step-by-step instructions to configure EmailJS for your notifications
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <EmailJSSetupGuide />
             </CardContent>
           </Card>
         </TabsContent>

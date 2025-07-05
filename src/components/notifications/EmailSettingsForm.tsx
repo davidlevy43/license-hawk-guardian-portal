@@ -15,13 +15,13 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { API_URL } from "@/services/api/base";
+import emailjs from '@emailjs/browser';
 
 const formSchema = z.object({
-  smtpServer: z.string().min(1, "SMTP server is required"),
-  smtpPort: z.coerce.number().int().positive("Port must be a positive number"),
-  username: z.string().min(1, "Username is required"),
-  password: z.string().min(1, "Password is required"),
+  serviceId: z.string().min(1, "Service ID is required"),
+  templateId: z.string().min(1, "Template ID is required"),
+  publicKey: z.string().min(1, "Public Key is required"),
+  privateKey: z.string().min(1, "Private Key is required"),
   senderEmail: z.string().email("Invalid email address"),
   senderName: z.string().min(1, "Sender name is required"),
 });
@@ -53,33 +53,37 @@ const EmailSettingsForm: React.FC = () => {
     setIsTestingEmail(true);
     
     try {
-      console.log("Sending test email with settings:", formData);
+      console.log("Sending test email with EmailJS settings:", formData);
       
-      const response = await fetch(`${API_URL}/api/email/send-test`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
-        },
-        body: JSON.stringify({
-          ...formData,
-          testEmailAddress: formData.senderEmail
-        })
-      });
-
-      const data = await response.json();
+      // Initialize EmailJS with public key
+      emailjs.init(formData.publicKey);
       
-      if (response.ok) {
+      // Test template parameters
+      const templateParams = {
+        to_email: formData.senderEmail,
+        from_name: formData.senderName,
+        message: "This is a test email from License Manager to verify EmailJS configuration.",
+        subject: "EmailJS Test Email"
+      };
+      
+      const result = await emailjs.send(
+        formData.serviceId,
+        formData.templateId,
+        templateParams,
+        formData.publicKey
+      );
+      
+      if (result.status === 200) {
         toast.success(`Test email sent successfully to ${formData.senderEmail}!`);
-        console.log("✅ Test email sent successfully");
+        console.log("✅ Test email sent successfully via EmailJS");
       } else {
-        toast.error(`Error sending test email: ${data.error}`);
-        console.error("❌ Error sending test email:", data.error);
+        toast.error("Failed to send test email");
+        console.error("❌ EmailJS error:", result);
       }
       
     } catch (error: any) {
-      console.error('Error sending test email:', error);
-      toast.error(`Error sending test email: ${error.message}`);
+      console.error('Error sending test email via EmailJS:', error);
+      toast.error(`Error sending test email: ${error.message || 'Unknown error'}`);
     } finally {
       setIsTestingEmail(false);
     }
@@ -98,25 +102,15 @@ const EmailSettingsForm: React.FC = () => {
     updateEmailSettings(formData);
     
     try {
-      const response = await fetch(`${API_URL}/api/email/test`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
-        },
-        body: JSON.stringify(formData)
-      });
-
-      const data = await response.json();
+      // Initialize EmailJS with public key to test connection
+      emailjs.init(formData.publicKey);
       
-      if (response.ok) {
-        toast.success("Connection test successful!");
-      } else {
-        toast.error(`Connection test failed: ${data.error}`);
-      }
+      toast.success("EmailJS connection settings saved successfully!");
+      console.log("✅ EmailJS configuration validated");
+      
     } catch (error: any) {
-      console.error('Connection test error:', error);
-      toast.error(`Connection test error: ${error.message}`);
+      console.error('EmailJS configuration error:', error);
+      toast.error(`Configuration error: ${error.message || 'Invalid EmailJS settings'}`);
     }
   };
 
@@ -126,15 +120,15 @@ const EmailSettingsForm: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
             control={form.control}
-            name="smtpServer"
+            name="serviceId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>SMTP Server</FormLabel>
+                <FormLabel>EmailJS Service ID</FormLabel>
                 <FormControl>
-                  <Input placeholder="smtp.gmail.com" {...field} />
+                  <Input placeholder="service_xxxxxxx" {...field} />
                 </FormControl>
                 <FormDescription>
-                  The address of your email server
+                  Your EmailJS service ID from dashboard
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -143,15 +137,15 @@ const EmailSettingsForm: React.FC = () => {
 
           <FormField
             control={form.control}
-            name="smtpPort"
+            name="templateId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>SMTP Port</FormLabel>
+                <FormLabel>EmailJS Template ID</FormLabel>
                 <FormControl>
-                  <Input type="number" placeholder="587" {...field} />
+                  <Input placeholder="template_xxxxxxx" {...field} />
                 </FormControl>
                 <FormDescription>
-                  Common ports: 25, 465, 587, 2525
+                  Your EmailJS template ID from dashboard
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -160,15 +154,15 @@ const EmailSettingsForm: React.FC = () => {
 
           <FormField
             control={form.control}
-            name="username"
+            name="publicKey"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Username</FormLabel>
+                <FormLabel>EmailJS Public Key</FormLabel>
                 <FormControl>
-                  <Input placeholder="your-email@example.com" {...field} />
+                  <Input placeholder="user_xxxxxxxxxxxxxxx" {...field} />
                 </FormControl>
                 <FormDescription>
-                  Usually your email address
+                  Your EmailJS public key (User ID)
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -177,19 +171,19 @@ const EmailSettingsForm: React.FC = () => {
 
           <FormField
             control={form.control}
-            name="password"
+            name="privateKey"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Password</FormLabel>
+                <FormLabel>EmailJS Private Key</FormLabel>
                 <FormControl>
                   <Input 
                     type="password" 
-                    placeholder="••••••••" 
+                    placeholder="••••••••••••••••" 
                     {...field} 
                   />
                 </FormControl>
                 <FormDescription>
-                  For Gmail, use an app password
+                  Your EmailJS private key (optional)
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -206,7 +200,7 @@ const EmailSettingsForm: React.FC = () => {
                   <Input placeholder="license-manager@company.com" {...field} />
                 </FormControl>
                 <FormDescription>
-                  Email address shown to recipients
+                  Email address for recipients to reply to
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -237,7 +231,7 @@ const EmailSettingsForm: React.FC = () => {
             variant="outline"
             onClick={handleTestConnection}
           >
-            Test Connection
+            Validate Settings
           </Button>
           <Button 
             type="button" 

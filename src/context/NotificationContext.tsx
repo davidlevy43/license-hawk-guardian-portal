@@ -20,10 +20,10 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | null>(null);
 
 const DEFAULT_EMAIL_SETTINGS: EmailSettings = {
-  smtpServer: "smtp.gmail.com",
-  smtpPort: 587,
-  username: "",
-  password: "",
+  serviceId: "",
+  templateId: "",
+  publicKey: "",
+  privateKey: "",
   senderEmail: "",
   senderName: "License Manager",
   automaticSending: true
@@ -128,27 +128,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const testEmailConnection = async (): Promise<boolean> => {
     try {
-      const response = await fetch(`${API_URL}/api/email/test`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
-        },
-        body: JSON.stringify(emailSettings)
-      });
-
-      const data = await response.json();
+      // Initialize EmailJS with public key
+      const emailjs = (await import('@emailjs/browser')).default;
+      emailjs.init(emailSettings.publicKey);
       
-      if (response.ok) {
-        toast.success(data.message);
-        return true;
-      } else {
-        toast.error(data.error);
-        return false;
-      }
+      toast.success("EmailJS configuration is valid");
+      return true;
     } catch (error) {
-      console.error('Email test error:', error);
-      toast.error('Failed to test email connection');
+      console.error('EmailJS test error:', error);
+      toast.error('EmailJS configuration test failed');
       return false;
     }
   };
@@ -196,6 +184,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         return;
       }
 
+      if (!emailSettings.serviceId || !emailSettings.templateId || !emailSettings.publicKey) {
+        console.warn(`⚠️ EmailJS not configured properly`);
+        toast.error("EmailJS settings incomplete. Please configure in settings.");
+        return;
+      }
+
       let template = '';
       switch (templateType) {
         case 'thirtyDays':
@@ -212,33 +206,51 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           return;
       }
 
-      const response = await fetch(`${API_URL}/api/email/send-notification`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
-        },
-        body: JSON.stringify({
-          emailSettings,
-          license,
-          templateType,
-          template
-        })
-      });
-
-      const data = await response.json();
+      // Import EmailJS dynamically
+      const emailjs = (await import('@emailjs/browser')).default;
       
-      if (response.ok) {
+      // Initialize EmailJS
+      emailjs.init(emailSettings.publicKey);
+
+      // Replace template variables
+      const processedTemplate = template
+        .replace(/{LICENSE_TYPE}/g, license.type)
+        .replace(/{LICENSE_NAME}/g, license.name)
+        .replace(/{EXPIRY_DATE}/g, new Date(license.renewalDate).toLocaleDateString())
+        .replace(/{CARD_LAST_4}/g, license.creditCardDigits || 'N/A');
+
+      // Template parameters for EmailJS
+      const templateParams = {
+        to_email: license.serviceOwnerEmail,
+        to_name: license.serviceOwner,
+        from_name: emailSettings.senderName,
+        reply_to: emailSettings.senderEmail,
+        subject: `License Renewal Reminder - ${license.name}`,
+        message: processedTemplate,
+        license_name: license.name,
+        license_type: license.type,
+        expiry_date: new Date(license.renewalDate).toLocaleDateString(),
+        service_owner: license.serviceOwner
+      };
+
+      const result = await emailjs.send(
+        emailSettings.serviceId,
+        emailSettings.templateId,
+        templateParams,
+        emailSettings.publicKey
+      );
+      
+      if (result.status === 200) {
         console.log(`✅ Email sent successfully for ${license.name}`);
         toast.success(`Email sent to ${license.serviceOwnerEmail} for ${license.name}`);
       } else {
-        console.error(`❌ Failed to send email for ${license.name}:`, data.error);
-        toast.error(`Failed to send email: ${data.error}`);
+        console.error(`❌ Failed to send email for ${license.name}:`, result);
+        toast.error(`Failed to send email via EmailJS`);
       }
       
     } catch (error) {
-      console.error('Email sending error:', error);
-      toast.error('Failed to send email notification');
+      console.error('EmailJS sending error:', error);
+      toast.error('Failed to send email notification via EmailJS');
     }
   };
 
