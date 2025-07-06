@@ -79,8 +79,8 @@ const NotificationTemplateForm: React.FC = () => {
           <h3 className="text-lg font-medium">Email Templates</h3>
           <p className="text-sm text-muted-foreground mb-4">
             Customize the email notification messages sent to license owners. You can use the following
-            placeholders: {"{LICENSE_NAME}"}, {"{EXPIRY_DATE}"}, {"{DEPARTMENT}"}, 
-            {"{SUPPLIER}"}, {"{COST}"}, {"{SERVICE_OWNER}"}, {"{CARD_LAST_4}"}
+            placeholders: {"{LICENSE_NAME}"}, {"{LICENSE_TYPE}"}, {"{EXPIRY_DATE}"}, 
+            {"{CARD_LAST_4}"}
           </p>
           
           <div className="bg-amber-50 border-l-4 border-amber-500 p-4 mb-6">

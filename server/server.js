@@ -7,6 +7,7 @@ const path = require('path');
 require('dotenv').config();
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const cron = require('node-cron');
 
 // Try to load nodemailer, but don't fail if it's not available
 let nodemailer = null;
@@ -1002,20 +1003,190 @@ app.delete('/api/users/:id', authenticateToken, requireAdmin, async (req, res) =
   }
 });
 
-// Settings endpoints
+// Email settings endpoints
+let emailSettings = {
+  smtpServer: process.env.SMTP_SERVER || '',
+  smtpPort: parseInt(process.env.SMTP_PORT) || 587,
+  username: process.env.SMTP_USER || '',
+  password: process.env.SMTP_PASSWORD || '',
+  senderEmail: process.env.SENDER_EMAIL || '',
+  senderName: process.env.SENDER_NAME || 'License Manager',
+  automaticSending: true
+};
+
+let notificationSettings = {
+  enabled: true,
+  emailTemplates: {
+    thirtyDays: "הרישיון {LICENSE_NAME} מסוג {LICENSE_TYPE} יפוג בעוד 30 יום בתאריך {EXPIRY_DATE}. אמצעי תשלום: {CARD_LAST_4}. אנא פעל בהתאם.",
+    sevenDays: "תזכורת: הרישיון {LICENSE_NAME} מסוג {LICENSE_TYPE} יפוג בעוד 7 ימים בתאריך {EXPIRY_DATE}. אמצעי תשלום: {CARD_LAST_4}.",
+    oneDay: "דחוף: הרישיון {LICENSE_NAME} מסוג {LICENSE_TYPE} פג מחר בתאריך {EXPIRY_DATE}! אמצעי תשלום: {CARD_LAST_4}."
+  }
+};
+
+app.get('/api/email-settings', authenticateToken, requireAdmin, (req, res) => {
+  // Don't send password in response
+  const safeSettings = { ...emailSettings };
+  delete safeSettings.password;
+  res.json(safeSettings);
+});
+
+app.put('/api/email-settings', authenticateToken, requireAdmin, (req, res) => {
+  emailSettings = { ...emailSettings, ...req.body };
+  res.json({ message: 'Email settings updated successfully' });
+});
+
+app.get('/api/notification-settings', authenticateToken, requireAdmin, (req, res) => {
+  res.json(notificationSettings);
+});
+
+app.put('/api/notification-settings', authenticateToken, requireAdmin, (req, res) => {
+  notificationSettings = { ...notificationSettings, ...req.body };
+  res.json({ message: 'Notification settings updated successfully' });
+});
+
+// Manual notification trigger
+app.post('/api/notifications/trigger', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    console.log('🕐 Manual notification trigger requested');
+    const result = await checkAndSendNotifications();
+    res.json({ success: true, result });
+  } catch (error) {
+    console.error('Error triggering notifications:', error);
+    res.status(500).json({ error: 'Failed to trigger notifications: ' + error.message });
+  }
+});
+
+// Function to check and send notifications
+const checkAndSendNotifications = async () => {
+  if (!notificationSettings.enabled || !emailSettings.smtpServer) {
+    console.log('🕐 Notifications disabled or email not configured');
+    return { message: 'Notifications disabled or email not configured' };
+  }
+
+  try {
+    // Get all licenses
+    const result = await pool.query('SELECT * FROM licenses');
+    const licenses = result.rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      department: row.department,
+      supplier: row.supplier,
+      renewalDate: row.renewal_date,
+      serviceOwner: row.service_owner,
+      serviceOwnerEmail: row.service_owner_email,
+      creditCardDigits: row.credit_card_digits
+    }));
+
+    const today = new Date();
+    const notifications = [];
+
+    // Check for licenses expiring in 1, 7, or 30 days
+    for (const license of licenses) {
+      if (!license.serviceOwnerEmail) continue;
+
+      const renewalDate = new Date(license.renewalDate);
+      const daysUntilExpiry = Math.ceil((renewalDate - today) / (1000 * 60 * 60 * 24));
+
+      let templateType = null;
+      if (daysUntilExpiry === 1) templateType = 'oneDay';
+      else if (daysUntilExpiry === 7) templateType = 'sevenDays';
+      else if (daysUntilExpiry === 30) templateType = 'thirtyDays';
+
+      if (templateType) {
+        try {
+          await sendLicenseNotification(license, templateType);
+          notifications.push({ license: license.name, type: templateType, status: 'sent' });
+        } catch (error) {
+          console.error(`Failed to send notification for ${license.name}:`, error);
+          notifications.push({ license: license.name, type: templateType, status: 'failed', error: error.message });
+        }
+      }
+    }
+
+    console.log(`🕐 Notification check completed. Sent ${notifications.length} notifications`);
+    return { notifications };
+
+  } catch (error) {
+    console.error('Error in checkAndSendNotifications:', error);
+    throw error;
+  }
+};
+
+// Function to send license notification
+const sendLicenseNotification = async (license, templateType) => {
+  if (!nodemailer) {
+    throw new Error('Nodemailer is not available');
+  }
+
+  const template = notificationSettings.emailTemplates[templateType];
+  if (!template) {
+    throw new Error(`Template not found for type: ${templateType}`);
+  }
+
+  // Process template
+  const processedTemplate = template
+    .replace(/{LICENSE_TYPE}/g, license.type || 'רישיון')
+    .replace(/{LICENSE_NAME}/g, license.name)
+    .replace(/{EXPIRY_DATE}/g, new Date(license.renewalDate).toLocaleDateString('he-IL'))
+    .replace(/{CARD_LAST_4}/g, license.creditCardDigits || 'לא זמין');
+
+  // Determine subject
+  let subject;
+  switch (templateType) {
+    case 'thirtyDays':
+      subject = `התראת חידוש רישיון - ${license.name} (30 יום)`;
+      break;
+    case 'sevenDays':
+      subject = `תזכורת חידוש רישיון - ${license.name} (7 ימים)`;
+      break;
+    case 'oneDay':
+      subject = `דחוף: הרישיון פג מחר - ${license.name}`;
+      break;
+    default:
+      subject = `התראת חידוש רישיון - ${license.name}`;
+  }
+
+  // Create transporter
+  const transporter = createTransporter(emailSettings);
+
+  // Send email
+  await transporter.sendMail({
+    from: `"${emailSettings.senderName}" <${emailSettings.senderEmail}>`,
+    to: license.serviceOwnerEmail,
+    subject: subject,
+    text: processedTemplate,
+    html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; direction: rtl;">
+      <h2 style="color: #333; text-align: center;">${subject}</h2>
+      <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-right: 4px solid #dc3545;">
+        <p style="font-size: 16px; line-height: 1.6; margin: 0;">
+          ${processedTemplate.replace(/\n/g, '<br>')}
+        </p>
+      </div>
+      <hr style="margin: 20px 0;">
+      <p style="color: #666; font-size: 12px; text-align: center;">
+        הודעה אוטומטית ממערכת ניהול הרישיונות<br>
+        מזהה רישיון: ${license.id}
+      </p>
+    </div>`
+  });
+
+  console.log(`📧 Notification sent to ${license.serviceOwnerEmail} for license ${license.name}`);
+};
+
+// Settings endpoints (legacy)
 app.get('/api/settings', authenticateToken, requireAdmin, (req, res) => {
   res.json({
     serverUrl: process.env.SERVER_URL || 'http://localhost:3001',
-    emailNotifications: process.env.EMAIL_NOTIFICATIONS === 'true',
-    smtpServer: process.env.SMTP_SERVER || '',
-    smtpPort: process.env.SMTP_PORT || 587,
-    smtpUser: process.env.SMTP_USER || '',
-    notificationDays: parseInt(process.env.NOTIFICATION_DAYS) || 30
+    emailNotifications: notificationSettings.enabled,
+    smtpServer: emailSettings.smtpServer,
+    smtpPort: emailSettings.smtpPort,
+    smtpUser: emailSettings.username,
+    notificationDays: 30
   });
 });
 
 app.put('/api/settings', authenticateToken, requireAdmin, (req, res) => {
-  // In a real implementation, you'd save these to a database or environment file
   res.json({ message: 'Settings updated successfully' });
 });
 
@@ -1023,6 +1194,16 @@ app.put('/api/settings', authenticateToken, requireAdmin, (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`License Manager API Server running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
+  
+  // Start notification scheduler - runs every day at 9:00 AM
+  cron.schedule('0 9 * * *', () => {
+    console.log('🕐 Running daily notification check at 9:00 AM');
+    checkAndSendNotifications().catch(error => {
+      console.error('Error in scheduled notification check:', error);
+    });
+  });
+  
+  console.log('🕐 Notification scheduler started - will run daily at 9:00 AM');
 });
 
 // Graceful shutdown

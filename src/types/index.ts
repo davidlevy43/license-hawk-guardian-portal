@@ -61,13 +61,13 @@ export interface License {
 }
 
 export interface EmailSettings {
-  serviceId: string;
-  templateId: string;
-  publicKey: string;
-  privateKey: string;
+  smtpServer: string;
+  smtpPort: number;
+  username: string;
+  password: string;
   senderEmail: string;
   senderName: string;
-  automaticSending: boolean; // Flag to enable/disable automatic sending
+  automaticSending: boolean;
 }
 
 export interface NotificationSettings {
