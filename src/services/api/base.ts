@@ -8,19 +8,18 @@ const determineApiUrl = () => {
   const port = window.location.port;
   const protocol = window.location.protocol;
   
-  // If accessing through nginx (no port or port 80), use nginx proxy
-  if (!port || port === '80') {
-    return `${protocol}//${hostname}`;
-  }
-  
-  // For direct development access, use port 3001
+  // Check specific hostnames first before port-based logic
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return 'http://localhost:3001';
   }
   
-  // For direct server access, use iltelpc71:3001
   if (hostname === 'iltelpc71') {
     return 'http://iltelpc71:3001';
+  }
+  
+  // If accessing through nginx (no port or port 80), use nginx proxy
+  if (!port || port === '80') {
+    return `${protocol}//${hostname}`;
   }
   
   return 'http://iltelpc71:3001';
