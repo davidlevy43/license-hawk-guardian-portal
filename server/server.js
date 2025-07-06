@@ -218,7 +218,7 @@ const createTransporter = (config) => {
   if (!nodemailer) {
     throw new Error('Nodemailer is not available. Please install it to use email features.');
   }
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     host: config.smtpServer,
     port: config.smtpPort,
     secure: config.smtpPort === 465, // true for 465, false for other ports
