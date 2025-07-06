@@ -65,7 +65,7 @@ const EmailSettingsForm: React.FC = () => {
       await updateEmailSettings(formData);
       
       // Send test email to the sender's email
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('authToken');
       if (!token) {
         toast.error("Authentication required");
         return;
@@ -113,7 +113,7 @@ const EmailSettingsForm: React.FC = () => {
     await updateEmailSettings(formData);
     
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('authToken');
       if (!token) {
         toast.error("Authentication required");
         return;

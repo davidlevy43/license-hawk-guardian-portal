@@ -48,7 +48,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const loadSettingsFromServer = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('authToken');
       if (!token) return;
 
       // Load email settings
@@ -83,7 +83,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const updateEmailSettings = async (settings: Partial<EmailSettings>) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('authToken');
       if (!token) {
         toast.error("Authentication required");
         return;
@@ -114,7 +114,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const updateNotificationSettings = async (settings: Partial<NotificationSettings>) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('authToken');
       if (!token) {
         toast.error("Authentication required");
         return;
@@ -152,7 +152,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const testEmailConnection = async (): Promise<boolean> => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('authToken');
       if (!token) {
         toast.error("Authentication required");
         return false;
@@ -195,7 +195,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const triggerManualCheck = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('authToken');
       if (!token) {
         toast.error("Authentication required");
         return;
