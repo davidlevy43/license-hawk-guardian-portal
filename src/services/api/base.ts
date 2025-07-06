@@ -19,6 +19,10 @@ const determineApiUrl = () => {
   }
   
   // For direct server access, use iltelpc71:3001
+  if (hostname === 'iltelpc71') {
+    return 'http://iltelpc71:3001';
+  }
+  
   return 'http://iltelpc71:3001';
 };
 
