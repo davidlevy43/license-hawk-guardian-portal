@@ -41,6 +41,7 @@ app.use(cors({
     'http://localhost:5173', 
     'http://localhost:3000', 
     'http://localhost',
+    'http://iltelpc71',
     'https://id-preview--e155f7e0-87f5-4108-9bae-d777af39bbd9.lovable.app'
   ],
   credentials: true
