@@ -425,7 +425,7 @@ app.post('/api/email/send-test', authenticateToken, requireAdmin, async (req, re
 
     const { emailSettings, testEmailAddress } = req.body;
     
-    if (!emailSettings.smtpServer || testEmailAddress) {
+    if (!emailSettings.smtpServer || !testEmailAddress) {
       return res.status(400).json({ error: 'Email settings and test email address are required' });
     }
 
